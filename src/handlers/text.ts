@@ -82,6 +82,12 @@ export async function handleText(ctx: Context): Promise<void> {
 		return; // Silently ignore messages without mention in groups
 	}
 
+	// Strip @mention prefix so Claude gets the actual message
+	if (BOT_USERNAME && message.startsWith(`@${BOT_USERNAME}`)) {
+		message = message.slice(BOT_USERNAME.length + 1).trim();
+		if (!message) return; // Empty after stripping mention
+	}
+
 	// 1. Authorization check
 	if (!isAuthorized(userId, ALLOWED_USERS)) {
 		await handleUnauthorized(ctx, userId);

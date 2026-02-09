@@ -14,6 +14,7 @@ import {
 	RESTART_FILE,
 	TELEGRAM_TOKEN,
 	WORKING_DIR,
+	setBotUsername,
 } from "./config";
 import { acquirePidLock, releasePidLock } from "./pid-lock";
 import {
@@ -162,6 +163,7 @@ console.log("Starting bot...");
 
 // Get bot info first
 const botInfo = await bot.api.getMe();
+setBotUsername(botInfo.username || "");
 console.log(`Bot started: @${botInfo.username}`);
 
 // Set up Telegram menu commands
