@@ -48,6 +48,7 @@ Telegram message → Handler → Auth check → Rate limit → Claude session �
 ### Handlers (`src/handlers/`)
 
 Each message type has a dedicated async handler:
+
 - **`commands.ts`** - `/start`, `/new`, `/stop`, `/status`, `/resume`, `/restart`
 - **`text.ts`** - Text messages with intent filtering
 - **`voice.ts`** - Voice→text via OpenAI, then same flow as text
@@ -68,6 +69,7 @@ Each message type has a dedicated async handler:
 ### Configuration
 
 All config via `.env` (copy from `.env.example`). Key variables:
+
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (required)
 - `CLAUDE_WORKING_DIR` - Working directory for Claude
 - `ALLOWED_PATHS` - Directories Claude can access
@@ -110,6 +112,7 @@ brew install poppler  # Provides pdftotext
 ### PATH Requirements
 
 When running as a standalone binary (especially from a macOS app), the PATH may not include Homebrew. The launcher must ensure PATH includes:
+
 - `/opt/homebrew/bin` (Apple Silicon Homebrew)
 - `/usr/local/bin` (Intel Homebrew)
 

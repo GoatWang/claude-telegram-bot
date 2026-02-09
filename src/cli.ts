@@ -11,7 +11,7 @@
  *   ctb --dir=/path  # Override working directory
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -309,6 +309,59 @@ async function interactiveSetup(
 	return { token, users };
 }
 
+/**
+ * Ensure .claude directory exists with proper configuration.
+ * Creates .claude/skills/ directory and CLAUDE.md if they don't exist.
+ */
+function ensureClaudeConfig(workingDir: string): void {
+	const claudeDir = join(workingDir, ".claude");
+	const skillsDir = join(claudeDir, "skills");
+	const claudeMdPath = join(claudeDir, "CLAUDE.md");
+
+	// Create .claude/skills/ directory
+	if (!existsSync(skillsDir)) {
+		mkdirSync(skillsDir, { recursive: true });
+		console.log(`✅ Created .claude/skills/ directory`);
+	}
+
+	// Create .claude/CLAUDE.md if it doesn't exist
+	if (!existsSync(claudeMdPath)) {
+		const claudeMdContent = `# Project Configuration for Claude Code
+
+This file provides guidance to Claude Code when working on this project.
+
+## Skills Location
+
+**IMPORTANT**: When adding skills to this project, use the local \`.claude/skills/\` directory:
+
+\`\`\`bash
+# Correct - Project-local skills
+.claude/skills/my-skill.md
+
+# Wrong - Global skills (DO NOT USE)
+~/.claude/skills/my-skill.md
+\`\`\`
+
+**Why local?** Skills are project-specific and should be version-controlled with your code.
+
+## Working with this Project
+
+This project uses the Claude Telegram Bot (ctb) to enable Claude Code access via Telegram.
+
+- Working directory: ${workingDir}
+- Skills location: ${skillsDir}
+
+Add project-specific instructions, patterns, or guidelines below:
+
+---
+
+`;
+
+		writeFileSync(claudeMdPath, claudeMdContent, "utf-8");
+		console.log(`✅ Created .claude/CLAUDE.md with skills configuration`);
+	}
+}
+
 async function main(): Promise<void> {
 	const args = process.argv.slice(2);
 	const options = parseArgs(args);
@@ -367,6 +420,9 @@ async function main(): Promise<void> {
 
 	// Set CTB_INSTANCE_DIR for session isolation
 	process.env.CTB_INSTANCE_DIR = workingDir;
+
+	// Ensure .claude directory and config exist
+	ensureClaudeConfig(workingDir);
 
 	console.log(`\nStarting ctb in ${workingDir}...\n`);
 
