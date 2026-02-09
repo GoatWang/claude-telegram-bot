@@ -318,6 +318,7 @@ async function processArchive(
 		const statusCallback = createStatusCallback(ctx, state, ctx.chat?.id);
 
 		const response = await queryQueue.sendMessage(
+			session,
 			prompt,
 			username,
 			userId,
@@ -404,6 +405,7 @@ async function processDocuments(
 
 	try {
 		const response = await queryQueue.sendMessage(
+			session,
 			prompt,
 			username,
 			userId,

@@ -97,6 +97,7 @@ async function processPhotos(
 
 	try {
 		const response = await queryQueue.sendMessage(
+			session,
 			prompt,
 			username,
 			userId,

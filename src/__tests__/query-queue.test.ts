@@ -21,10 +21,12 @@ mock.module("../session", () => ({
 			return mockActiveQueries;
 		},
 	},
-	session: {
-		sendMessageStreaming: mockSendMessageStreaming,
-	},
 }));
+
+// Mock session instance passed to sendMessage
+const mockSession = {
+	sendMessageStreaming: mockSendMessageStreaming,
+} as any;
 
 // Mock the events module
 const mockEventListeners: Map<string, (() => void)[]> = new Map();
@@ -78,6 +80,7 @@ describe("QueryQueue", () => {
 		const statusCallback = createMockStatusCallback();
 
 		const result = await queue.sendMessage(
+			mockSession,
 			"test message",
 			"testuser",
 			123,
@@ -94,6 +97,7 @@ describe("QueryQueue", () => {
 
 		// Start the queued request (will not resolve immediately)
 		const promise = queue.sendMessage(
+			mockSession,
 			"test message",
 			"testuser",
 			123,
@@ -123,14 +127,20 @@ describe("QueryQueue", () => {
 		const promises: Promise<string>[] = [];
 		for (let i = 0; i < 3; i++) {
 			promises.push(
-				queue.sendMessage(`message ${i}`, "testuser", 123, statusCallback),
+				queue.sendMessage(
+					mockSession,
+					`message ${i}`,
+					"testuser",
+					123,
+					statusCallback,
+				),
 			);
 		}
 		expect(queue.length).toBe(3);
 
 		// Next should throw
 		await expect(
-			queue.sendMessage("overflow message", "testuser", 123, statusCallback),
+			queue.sendMessage(mockSession, "overflow message", "testuser", 123, statusCallback),
 		).rejects.toThrow(/Queue full/);
 
 		// Clean up - catch the rejections
@@ -144,6 +154,7 @@ describe("QueryQueue", () => {
 
 		// Queue a request
 		const promise = queue.sendMessage(
+			mockSession,
 			"queued message",
 			"testuser",
 			123,
@@ -165,8 +176,8 @@ describe("QueryQueue", () => {
 		const statusCallback = createMockStatusCallback();
 
 		// Queue some requests
-		const promise1 = queue.sendMessage("msg1", "user", 1, statusCallback);
-		const promise2 = queue.sendMessage("msg2", "user", 2, statusCallback);
+		const promise1 = queue.sendMessage(mockSession, "msg1", "user", 1, statusCallback);
+		const promise2 = queue.sendMessage(mockSession, "msg2", "user", 2, statusCallback);
 
 		expect(queue.length).toBe(2);
 
@@ -202,7 +213,7 @@ describe("QueryQueue", () => {
 		const statusCallback = createMockStatusCallback();
 
 		// Queue a request
-		const promise = queue.sendMessage("test", "user", 1, statusCallback);
+		const promise = queue.sendMessage(mockSession, "test", "user", 1, statusCallback);
 
 		// Wait a bit
 		await new Promise((resolve) => setTimeout(resolve, 10));
@@ -225,7 +236,7 @@ describe("QueryQueue", () => {
 		// Fill to limit
 		const promises: Promise<string>[] = [];
 		for (let i = 0; i < 3; i++) {
-			promises.push(queue.sendMessage(`msg${i}`, "user", i, statusCallback));
+			promises.push(queue.sendMessage(mockSession, `msg${i}`, "user", i, statusCallback));
 		}
 
 		expect(queue.isFull).toBe(true);

@@ -298,8 +298,13 @@ export async function isBotMentioned(
 	const chat = ctx.chat;
 	if (!chat) return false;
 
+	console.log(
+		`[isBotMentioned] Chat type: ${chat.type}, botUsername: "${botUsername}"`,
+	);
+
 	// In private chats, always respond
 	if (chat.type === "private") {
+		console.log("[isBotMentioned] ✅ Private chat - always respond");
 		return true;
 	}
 
@@ -321,16 +326,38 @@ export async function isBotMentioned(
 	const message = ctx.message;
 	if (!message) return false;
 
-	// Check entities for mentions
+	const text = message.text || "";
 	const entities = message.entities || [];
+
+	// Check entities for mentions and bot commands
 	for (const entity of entities) {
+		// Check regular mentions (@username in text)
 		if (entity.type === "mention" || entity.type === "text_mention") {
-			const text = message.text || "";
 			const mentionText = text.slice(
 				entity.offset,
 				entity.offset + entity.length,
 			);
+			console.log(
+				`[isBotMentioned] Found mention entity: "${mentionText}", botUsername: "${botUsername}"`,
+			);
 			if (mentionText === `@${botUsername}`) {
+				console.log("[isBotMentioned] ✅ Matched bot mention");
+				return true;
+			}
+		}
+
+		// Check bot commands with @username (/command@username)
+		if (entity.type === "bot_command") {
+			const commandText = text.slice(
+				entity.offset,
+				entity.offset + entity.length,
+			);
+			console.log(
+				`[isBotMentioned] Found bot_command entity: "${commandText}", botUsername: "${botUsername}"`,
+			);
+			// Command format: /command@username
+			if (commandText.includes(`@${botUsername}`)) {
+				console.log("[isBotMentioned] ✅ Matched bot command with username");
 				return true;
 			}
 		}
@@ -338,9 +365,11 @@ export async function isBotMentioned(
 
 	// Also check if message is a reply to bot's message
 	if (message.reply_to_message?.from?.username === botUsername) {
+		console.log("[isBotMentioned] ✅ Reply to bot's message");
 		return true;
 	}
 
+	console.log("[isBotMentioned] ❌ Bot not mentioned - will ignore in group");
 	return false;
 }
 

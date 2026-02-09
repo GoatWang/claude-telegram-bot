@@ -8,13 +8,14 @@
 import type { Context } from "grammy";
 import { MAX_CONCURRENT_QUERIES, MAX_QUERY_QUEUE_SIZE } from "./config";
 import { botEvents } from "./events";
-import { ClaudeSession, session } from "./session";
+import { ClaudeSession } from "./session";
 import type { StatusCallback } from "./types";
 
 /**
  * A queued query waiting to be executed.
  */
 interface QueuedQuery {
+	session: ClaudeSession;
 	message: string;
 	username: string;
 	userId: number;
@@ -55,6 +56,7 @@ class QueryQueue {
 	 * If queue is full, throws an error.
 	 */
 	async sendMessage(
+		session: ClaudeSession,
 		message: string,
 		username: string,
 		userId: number,
@@ -84,6 +86,7 @@ class QueryQueue {
 		// Queue the request
 		return new Promise<string>((resolve, reject) => {
 			this.queue.push({
+				session,
 				message,
 				username,
 				userId,
@@ -153,7 +156,7 @@ class QueryQueue {
 
 			// Execute the query
 			try {
-				const result = await session.sendMessageStreaming(
+				const result = await query.session.sendMessageStreaming(
 					query.message,
 					query.username,
 					query.userId,

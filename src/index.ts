@@ -49,7 +49,7 @@ import {
 	handleVoice,
 	handleWorktree,
 } from "./handlers";
-import { session } from "./session";
+import { sessionManager } from "./session";
 import { safeUnlink } from "./utils/temp-cleanup";
 
 // Create bot instance
@@ -214,9 +214,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
 			console.log("Bot stopped");
 		}
 
-		// Flush session data
-		session.flushSession();
-		console.log("Session flushed");
+		// Flush all session data
+		sessionManager.flushAllSessions();
+		console.log("All sessions flushed");
 
 		// Clear the timeout and exit cleanly
 		clearTimeout(forceExit);

@@ -226,6 +226,7 @@ export async function handleCallback(ctx: Context): Promise<void> {
 
 	try {
 		const response = await queryQueue.sendMessage(
+			session,
 			message,
 			username,
 			userId,
@@ -417,6 +418,7 @@ async function handlePendingCallback(
 
 		try {
 			const response = await queryQueue.sendMessage(
+				session,
 				message,
 				username,
 				userId,
@@ -454,6 +456,10 @@ async function handleActionCallback(
 ): Promise<void> {
 	const action = callbackData.split(":")[1];
 
+	const chatId = ctx.chat?.id;
+	if (!chatId) return;
+	const session = sessionManager.getSession(chatId);
+
 	// Delete the button message first
 	try {
 		await ctx.deleteMessage();
@@ -464,11 +470,6 @@ async function handleActionCallback(
 	// Handle handoff separately - it's not a command but a special action
 	if (action === "handoff") {
 		await ctx.answerCallbackQuery({ text: "Starting handoff..." });
-
-		const chatId = ctx.chat?.id;
-		if (!chatId) return;
-
-		const session = sessionManager.getSession(chatId);
 		const lastResponse = session.lastBotResponse;
 
 		if (!lastResponse) {
@@ -511,6 +512,7 @@ async function handleActionCallback(
 
 	try {
 		const response = await queryQueue.sendMessage(
+			session,
 			command,
 			username,
 			userId,
@@ -999,11 +1001,13 @@ If the merge is clean, just complete it. If there are conflicts, explain what yo
 
 	try {
 		const response = await queryQueue.sendMessage(
+			session,
 			mergePrompt,
 			username,
 			userId,
 			statusCallback,
 			chatId,
+			ctx,
 		);
 
 		await auditLog(userId, username, "MERGE", branchToMerge, response);
@@ -1131,6 +1135,7 @@ async function handleDiffCallback(
 
 		try {
 			const response = await queryQueue.sendMessage(
+				session,
 				"/commit",
 				username,
 				userId,
@@ -1292,6 +1297,7 @@ async function handleVoiceCallback(
 
 		try {
 			const response = await queryQueue.sendMessage(
+				session,
 				transcript,
 				username,
 				userId,

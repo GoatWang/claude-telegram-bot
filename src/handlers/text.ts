@@ -245,6 +245,7 @@ export async function handleText(ctx: Context): Promise<void> {
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
 			const response = await queryQueue.sendMessage(
+				session,
 				message,
 				username,
 				userId,
@@ -342,6 +343,7 @@ export async function handleText(ctx: Context): Promise<void> {
 
 		try {
 			const response = await queryQueue.sendMessage(
+				session,
 				pendingText,
 				username,
 				userId,
