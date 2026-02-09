@@ -24,6 +24,7 @@ import {
 	MCP_SERVERS,
 	QUERY_TIMEOUT_MS,
 	SAFETY_PROMPT,
+	SESSION_DIR,
 	SESSION_FILE,
 	STREAMING_THROTTLE_MS,
 	TEMP_PATHS,
@@ -1144,8 +1145,7 @@ class ClaudeSession {
 // Export class for testing
 export { ClaudeSession };
 
-// Session directory for per-chat sessions
-const SESSION_DIR = "/tmp/claude-telegram-sessions/";
+// SESSION_DIR is imported from config (per-instance)
 const IDLE_SESSION_CLEANUP_MS = Number.parseInt(
 	process.env.IDLE_SESSION_CLEANUP_MS || String(24 * 60 * 60 * 1000), // 24 hours
 	10,

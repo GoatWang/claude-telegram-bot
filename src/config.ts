@@ -365,6 +365,7 @@ export const TEMP_PATHS = ["/tmp/", "/private/tmp/", "/var/folders/"];
 
 // Ensure temp directories exist
 await Bun.write(`${INSTANCE_TEMP_DIR}/.keep`, "");
+await Bun.write(`${SESSION_DIR}/.keep`, "");
 await Bun.write(`${TEMP_DIR}/.keep`, "");
 
 // ============== Validation ==============
