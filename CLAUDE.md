@@ -1,135 +1,109 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## ⚠️ Skills Location
-
-**IMPORTANT**: When adding skills to this project, always use the **local** `.claude/skills/` directory in the project root:
-
-```bash
-# Correct - Project-local skills
-.claude/skills/my-skill.md
-
-# Wrong - Global skills (DO NOT USE for this project)
-~/.claude/skills/my-skill.md
-```
-
-**Why local?** This project is a Telegram bot that can be deployed to different environments. Skills should be version-controlled with the code and shared across all deployments.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Commands
 
 ```bash
-bun run start      # Run the bot
+bun run start      # Run the bot (src/bot.ts)
 bun run dev        # Run with auto-reload (--watch)
-bun run typecheck  # Run TypeScript type checking
+bun run typecheck  # TypeScript type checking
+bun test           # Run tests
 bun install        # Install dependencies
 ```
 
 ## Architecture
 
-This is a Telegram bot (~3,300 lines TypeScript) that lets you control Claude Code from your phone via text, voice, photos, and documents. Built with Bun and grammY.
+Telegram bot (~3,300 lines TypeScript) that provides a Claude Code interface via text, voice, photos, and documents. Built with **Bun** and **grammY**.
 
 ### Message Flow
 
 ```
-Telegram message → Handler → Auth check → Rate limit → Claude session → Streaming response → Audit log
+Telegram → Dedup → Sequentialize → Handler → Auth → Rate limit → Claude session → Streaming response → Audit log
 ```
+
+### Entry Points
+
+| File               | Purpose                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `src/cli/index.ts` | Main CLI entry (`ctb` command): parses args, loads .env, sets `CTB_INSTANCE_DIR`, imports bot.ts |
+| `src/bot.ts`       | Bot setup: handler registration, PID lock, dedup middleware, startup                             |
+| `src/index.ts`     | Legacy direct startup (backwards compat)                                                         |
 
 ### Key Modules
 
-- **`src/index.ts`** - Entry point, registers handlers, starts polling
-- **`src/config.ts`** - Environment parsing, MCP loading, safety prompts
-- **`src/session.ts`** - `ClaudeSession` class wrapping Agent SDK V2 with streaming, session persistence (`/tmp/claude-telegram-session.json`), and defense-in-depth safety checks
-- **`src/security.ts`** - `RateLimiter` (token bucket), path validation, command safety checks
-- **`src/formatting.ts`** - Markdown→HTML conversion for Telegram, tool status emoji formatting
-- **`src/utils.ts`** - Audit logging, voice transcription (OpenAI), typing indicators
-- **`src/types.ts`** - Shared TypeScript types
+- **`src/config.ts`** - Environment parsing, instance isolation (`INSTANCE_HASH`), safety prompts
+- **`src/session.ts`** - `ClaudeSession` per chat, session persistence, query queue integration
+- **`src/security.ts`** - `RateLimiter` (token bucket), `isPathAllowed()`, `checkCommandSafety()`
+- **`src/formatting.ts`** - Markdown→HTML for Telegram, tool status emoji formatting
+- **`src/git/`** - Git operations: worktree, merge, exec, branch listing
+- **`src/providers/`** - `claude` (Agent SDK) and `codex` (Node.js worker) providers
 
 ### Handlers (`src/handlers/`)
 
-Each message type has a dedicated async handler:
+- **`commands.ts`** - 25+ slash commands (see `doc/commands.md`)
+- **`text.ts`** - Text messages with `@mention` stripping, `!!` interrupt, `!` shell shortcut
+- **`voice.ts`** - Voice→text via OpenAI, then text flow
+- **`photo.ts`** - Image analysis with media group buffering
+- **`document.ts`** - PDF extraction (`pdftotext` CLI) and text files
+- **`callback.ts`** - Inline keyboard button handling
+- **`streaming.ts`** - `StreamingState` and `createStatusCallback()` factory
 
-- **`commands.ts`** - `/start`, `/new`, `/stop`, `/status`, `/resume`, `/restart`
-- **`text.ts`** - Text messages with intent filtering
-- **`voice.ts`** - Voice→text via OpenAI, then same flow as text
-- **`photo.ts`** - Image analysis with media group buffering (1s timeout for albums)
-- **`document.ts`** - PDF extraction (pdftotext CLI) and text file processing
-- **`callback.ts`** - Inline keyboard button handling for ask_user MCP
-- **`streaming.ts`** - Shared `StreamingState` and status callback factory
+## Security Model
 
-### Security Layers
+1. **User allowlist** - `TELEGRAM_ALLOWED_USERS` (required)
+2. **Path restriction** - `ALLOWED_PATHS` defaults to `WORKING_DIR` only. No `~/Documents`, `~/Desktop` etc.
+3. **Command blocking** - 30+ dangerous patterns (rm -rf, fork bomb, chmod 777, curl|bash...)
+4. **Rate limiting** - Token bucket per user (20 req/60s default)
+5. **Safety prompt** - Injected into Claude: confirm deletions, respect paths
+6. **Audit logging** - All actions logged with user/timestamp
 
-1. User allowlist (`TELEGRAM_ALLOWED_USERS`)
-2. Rate limiting (token bucket, configurable)
-3. Path validation (`ALLOWED_PATHS`)
-4. Command safety (blocked patterns)
-5. System prompt constraints
-6. Audit logging
+## Multi-Instance Isolation
 
-### Configuration
+Each bot instance (different `WORKING_DIR`) gets its own temp directory via `INSTANCE_HASH`:
 
-All config via `.env` (copy from `.env.example`). Key variables:
+```
+/tmp/ctb-{hash}/
+├── session.json      # Legacy session file
+├── sessions/         # Per-chat session persistence
+├── restart.json      # Restart coordination
+├── pid.lock          # Single-instance lock
+└── downloads/        # Temp files (photos, documents)
+```
 
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (required)
-- `CLAUDE_WORKING_DIR` - Working directory for Claude
-- `ALLOWED_PATHS` - Directories Claude can access
-- `OPENAI_API_KEY` - For voice transcription
+## Worktrees
 
-MCP servers defined in `mcp-config.ts`.
+Worktrees are stored in `.worktrees/` inside the project (not a sibling directory). This folder is in `.gitignore`. Created via `/worktree` command; switched via `/branch`.
 
-### Runtime Files
+## Group Chat
 
-- `/tmp/claude-telegram-session.json` - Session persistence for `/resume`
-- `/tmp/telegram-bot/` - Downloaded photos/documents
-- `/tmp/claude-telegram-audit.log` - Audit log
+- **Privacy mode must be disabled** via `@BotFather` → `/setprivacy` → Disable
+- Bot must be re-added to existing groups after changing this setting
+- 2-member groups (user + bot) auto-respond without `@mention`
+- Larger groups require `@botname message` or `/command@botname`
 
 ## Patterns
 
-**Adding a skill**: Create in `.claude/skills/skill-name.md` (project root, not global). Skills should be version-controlled with the codebase.
+**Adding a command**: Create handler in `commands.ts`, register in `bot.ts` with `bot.command("name", handler)`, add to menu commands array.
 
-**Adding a command**: Create handler in `commands.ts`, register in `index.ts` with `bot.command("name", handler)`
+**Adding a message handler**: Create in `handlers/`, export from `handlers/index.ts`, register in `bot.ts`.
 
-**Adding a message handler**: Create in `handlers/`, export from `index.ts`, register in `index.ts` with appropriate filter
+**Streaming pattern**: All handlers use `createStatusCallback()` from `streaming.ts` and `queryQueue.sendMessage()`.
 
-**Streaming pattern**: All handlers use `createStatusCallback()` from `streaming.ts` and `session.sendMessageStreaming()` for live updates.
-
-**Type checking**: Run `bun run typecheck` periodically while editing TypeScript files. Fix any type errors before committing.
-
-**After code changes**: Restart the bot so changes can be tested. Use `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts` if running as a service, or `bun run start` for manual runs.
-
-## Standalone Build
-
-The bot can be compiled to a standalone binary with `bun build --compile`. This is used by the ClaudeBot macOS app wrapper.
-
-### External Dependencies
-
-PDF extraction uses `pdftotext` CLI instead of an npm package (to avoid bundling issues):
-
-```bash
-brew install poppler  # Provides pdftotext
-```
-
-### PATH Requirements
-
-When running as a standalone binary (especially from a macOS app), the PATH may not include Homebrew. The launcher must ensure PATH includes:
-
-- `/opt/homebrew/bin` (Apple Silicon Homebrew)
-- `/usr/local/bin` (Intel Homebrew)
-
-Without this, `pdftotext` won't be found and PDF parsing will fail silently with an error message.
+**Skills**: Create in `.claude/skills/skill-name.md` (project-local, not global `~/.claude/skills/`).
 
 ## Commit Style
 
-Do not add "Generated with Claude Code" footers or "Co-Authored-By" trailers to commit messages.
+Do not add "Generated with Claude Code" footers or "Co-Authored-By" trailers.
 
-## Running as Service (macOS)
+## Configuration
 
-```bash
-cp launchagent/com.claude-telegram-ts.plist.template ~/Library/LaunchAgents/com.claude-telegram-ts.plist
-# Edit plist with your paths
-launchctl load ~/Library/LaunchAgents/com.claude-telegram-ts.plist
+All config via `.env` (copy from `.env.example`). See `doc/configuration.md` for full reference.
 
-# Logs
-tail -f /tmp/claude-telegram-bot-ts.log
-tail -f /tmp/claude-telegram-bot-ts.err
-```
+**Required**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`
+
+## Further Documentation
+
+- `doc/commands.md` - Full command reference
+- `doc/configuration.md` - Environment variables and MCP setup
+- `doc/deployment.md` - Standalone build, macOS service, PATH requirements

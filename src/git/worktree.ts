@@ -3,12 +3,19 @@
  */
 
 import { mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { isPathAllowed } from "../security";
-import { branchExists, execGit, getRepoRoot, sanitizeWorktreeName } from "./exec";
+import {
+	branchExists,
+	execGit,
+	getRepoRoot,
+	sanitizeWorktreeName,
+} from "./exec";
 import type { BranchListResult, WorktreeResult } from "./types";
 
-export async function getWorktreeMap(repoRoot: string): Promise<Map<string, string>> {
+export async function getWorktreeMap(
+	repoRoot: string,
+): Promise<Map<string, string>> {
 	const result = await execGit(["worktree", "list", "--porcelain"], repoRoot);
 	if (result.exitCode !== 0) {
 		return new Map();
@@ -83,7 +90,11 @@ export async function getWorkingTreeStatus(cwd: string): Promise<{
 }> {
 	const repoRoot = await getRepoRoot(cwd);
 	if (!repoRoot) {
-		return { success: false, dirty: false, message: "Not inside a git repository." };
+		return {
+			success: false,
+			dirty: false,
+			message: "Not inside a git repository.",
+		};
 	}
 
 	const statusResult = await execGit(["status", "--porcelain"], repoRoot);
@@ -138,7 +149,7 @@ export async function createOrReuseWorktree(
 		};
 	}
 
-	const baseDir = resolve(repoRoot, "..", "worktree");
+	const baseDir = join(repoRoot, ".worktrees");
 	if (!isPathAllowed(baseDir)) {
 		return {
 			success: false,

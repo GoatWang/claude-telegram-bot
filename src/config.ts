@@ -5,7 +5,7 @@
  */
 
 import { homedir } from "node:os";
-import { basename, dirname, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { McpServerConfig } from "./types";
 
 // ============== Environment Setup ==============
@@ -105,16 +105,8 @@ export { MCP_SERVERS };
 
 // ============== Security Configuration ==============
 
-// Allowed directories for file operations
-const WORKTREE_BASE_DIR = resolve(WORKING_DIR, "..", "worktree");
-const defaultAllowedPaths = [
-	WORKING_DIR,
-	...(basename(WORKTREE_BASE_DIR) === "worktree" ? [WORKTREE_BASE_DIR] : []),
-	`${HOME}/Documents`,
-	`${HOME}/Downloads`,
-	`${HOME}/Desktop`,
-	`${HOME}/.claude`, // Claude Code data (plans, settings)
-];
+// Allowed directories for file operations (WORKING_DIR includes .worktrees subdirectory)
+const defaultAllowedPaths = [WORKING_DIR];
 
 const allowedPathsStr = process.env.ALLOWED_PATHS || "";
 export const ALLOWED_PATHS: string[] = allowedPathsStr

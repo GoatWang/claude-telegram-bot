@@ -40,6 +40,9 @@ mcp-config.ts
 .DS_Store
 /claude-bot-standalone
 
+# git worktrees
+.worktrees
+
 # generated docs
 /docs/html
 /docs/markdown
