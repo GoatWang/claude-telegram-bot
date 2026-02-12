@@ -2,7 +2,7 @@
  * Handler exports for Claude Telegram Bot.
  */
 
-export { handleCallback } from "./callback";
+export { handleCallback } from "./callbacks";
 export {
 	handleBookmarks,
 	handleBranch,

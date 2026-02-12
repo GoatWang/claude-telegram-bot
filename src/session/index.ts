@@ -4,7 +4,12 @@
  */
 
 export { SESSION_VERSION } from "./types";
-export { getThinkingLevel, _getTextFromMessage, createProvider, resolveProvider } from "./thinking";
+export {
+	getThinkingLevel,
+	_getTextFromMessage,
+	createProvider,
+	resolveProvider,
+} from "./thinking";
 export { ClaudeSession } from "./claude-session";
 export { SessionManager } from "./session-manager";
 
