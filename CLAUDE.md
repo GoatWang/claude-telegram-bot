@@ -33,21 +33,23 @@ Telegram → Dedup → Sequentialize → Handler → Auth → Rate limit → Cla
 ### Key Modules
 
 - **`src/config.ts`** - Environment parsing, instance isolation (`INSTANCE_HASH`), safety prompts
-- **`src/session.ts`** - `ClaudeSession` per chat, session persistence, query queue integration
+- **`src/session/`** - `ClaudeSession` per chat (`claude-session.ts`), session persistence (`session-manager.ts`), thinking budget (`thinking.ts`), shared types (`types.ts`)
 - **`src/security.ts`** - `RateLimiter` (token bucket), `isPathAllowed()`, `checkCommandSafety()`
 - **`src/formatting.ts`** - Markdown→HTML for Telegram, tool status emoji formatting
-- **`src/git/`** - Git operations: worktree, merge, exec, branch listing
+- **`src/git/`** - Git operations: worktree management, merge, diff, exec, shared types
+- **`src/cli/`** - CLI entry point: arg parsing (`parser.ts`), help text, env loading, setup
+- **`src/utils/`** - Audit logging, voice transcription (OpenAI), typing indicators, group chat detection, error logging, temp cleanup
 - **`src/providers/`** - `claude` (Agent SDK) and `codex` (Node.js worker) providers
 
 ### Handlers (`src/handlers/`)
 
-- **`commands.ts`** - 25+ slash commands (see `doc/commands.md`)
 - **`text.ts`** - Text messages with `@mention` stripping, `!!` interrupt, `!` shell shortcut
 - **`voice.ts`** - Voice→text via OpenAI, then text flow
 - **`photo.ts`** - Image analysis with media group buffering
-- **`document.ts`** - PDF extraction (`pdftotext` CLI) and text files
-- **`callback.ts`** - Inline keyboard button handling
 - **`streaming.ts`** - `StreamingState` and `createStatusCallback()` factory
+- **`commands/`** - 25+ slash commands split by domain: session, restart, config, files, git, utils (see `doc/commands.md`)
+- **`document/`** - PDF extraction (`pdftotext` CLI) and text files: constants, extractor, processor
+- **`callbacks/`** - Inline keyboard handlers by type: ask-user, shell, pending, action, session, git, voice
 
 ## Security Model
 
@@ -84,7 +86,7 @@ Worktrees are stored in `.worktrees/` inside the project (not a sibling director
 
 ## Patterns
 
-**Adding a command**: Create handler in `commands.ts`, register in `bot.ts` with `bot.command("name", handler)`, add to menu commands array.
+**Adding a command**: Create handler in the appropriate `handlers/commands/*.ts` submodule (session, config, files, git, or restart), register in `bot.ts` with `bot.command("name", handler)`, add to menu commands array.
 
 **Adding a message handler**: Create in `handlers/`, export from `handlers/index.ts`, register in `bot.ts`.
 
