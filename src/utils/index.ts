@@ -16,6 +16,7 @@ export { startTypingIndicator } from "./typing";
 export type { TypingController } from "./typing";
 export {
 	checkInterrupt,
+	effectFor,
 	isBotMentioned,
 	sendPrivateMessage,
 	handleUnauthorized,

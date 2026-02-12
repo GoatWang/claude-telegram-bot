@@ -18,6 +18,7 @@ import { sessionManager } from "../session";
 import {
 	auditLog,
 	auditLogRateLimit,
+	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -457,7 +458,7 @@ async function processDocumentPaths(
 
 	if (documents.length === 0) {
 		await ctx.reply("❌ Failed to extract any documents.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -493,7 +494,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
 	// 2. Check file size
 	if (doc.file_size && doc.file_size > MAX_FILE_SIZE) {
 		await ctx.reply("❌ File too large. Maximum size is 10MB.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -513,7 +514,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
 					", ",
 				)}), ${TEXT_EXTENSIONS.join(", ")}`,
 			{
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			},
 		);
 		return;
@@ -526,7 +527,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
 	} catch (error) {
 		console.error("Failed to download document:", error);
 		await ctx.reply("❌ Failed to download document.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}

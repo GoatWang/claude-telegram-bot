@@ -19,7 +19,12 @@ import { queryQueue } from "../query-queue";
 import { isAuthorized, isPathAllowed } from "../security";
 import { sessionManager } from "../session";
 import { withRetry } from "../telegram-api";
-import { auditLog, sendPrivateMessage, startTypingIndicator } from "../utils";
+import {
+	auditLog,
+	effectFor,
+	sendPrivateMessage,
+	startTypingIndicator,
+} from "../utils";
 import { logNonCriticalError } from "../utils/error-logging";
 import {
 	createOrReuseWorktree,
@@ -271,7 +276,7 @@ export async function handleCallback(ctx: Context): Promise<void> {
 			);
 			await withRetry(() =>
 				ctx.reply(`❌ ${userMessage}`, {
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				}),
 			);
 		}
@@ -342,7 +347,7 @@ async function handleShellCallback(
 			exitCode === 0 ? MESSAGE_EFFECTS.THUMBS_UP : MESSAGE_EFFECTS.THUMBS_DOWN;
 		await ctx.reply(
 			`${statusEmoji} Exit code: ${exitCode}\n<pre>${truncated || "(no output)"}</pre>`,
-			{ parse_mode: "HTML", message_effect_id: effectId },
+			{ parse_mode: "HTML", message_effect_id: effectFor(ctx, effectId) },
 		);
 		await auditLog(userId, username, "SHELL", shellCmd, `exit=${exitCode}`);
 		return;
@@ -433,7 +438,7 @@ async function handlePendingCallback(
 				error instanceof Error ? error : new Error(String(error)),
 			);
 			await ctx.reply(`❌ ${userMessage}`, {
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			});
 		} finally {
 			typing.stop();
@@ -485,7 +490,7 @@ async function handleActionCallback(
 
 		await ctx.reply(
 			"✅ Session compressed. Last response will be used as context in your next message.",
-			{ message_effect_id: MESSAGE_EFFECTS.CONFETTI },
+			{ message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI) },
 		);
 		return;
 	}
@@ -527,7 +532,7 @@ async function handleActionCallback(
 			error instanceof Error ? error : new Error(String(error)),
 		);
 		await ctx.reply(`❌ 執行失敗: ${userMessage}`, {
-			message_effect_id: MESSAGE_EFFECTS.POOP,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.POOP),
 		});
 	} finally {
 		typing.stop();
@@ -896,7 +901,7 @@ async function handleSendFileCallback(
 	} catch (error) {
 		console.error("Failed to send file:", error);
 		await ctx.reply(`❌ Failed to send file: ${String(error).slice(0, 100)}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 	}
 }
@@ -1014,7 +1019,7 @@ If the merge is clean, just complete it. If there are conflicts, explain what yo
 	} catch (error) {
 		console.error("Merge error:", error);
 		await ctx.reply(`❌ Merge failed: ${String(error).slice(0, 200)}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 	} finally {
 		typing.stop();
@@ -1082,7 +1087,7 @@ async function handleDiffCallback(
 			if (diffBuffer.length > MAX_DIFF_SIZE) {
 				await ctx.answerCallbackQuery({ text: "Diff file too large" });
 				await ctx.reply("❌ Diff is too large to send as a file.", {
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				});
 				return;
 			}
@@ -1148,7 +1153,7 @@ async function handleDiffCallback(
 		} catch (error) {
 			console.error("Commit error:", error);
 			await ctx.reply(`❌ Commit failed: ${String(error).slice(0, 200)}`, {
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			});
 		} finally {
 			typing.stop();
@@ -1338,7 +1343,7 @@ async function handleVoiceCallback(
 					error instanceof Error ? error : new Error(errorStr),
 				);
 				await ctx.reply(`❌ ${userMessage}`, {
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				});
 			}
 		} finally {

@@ -17,6 +17,7 @@ import { sessionManager } from "../session";
 import {
 	auditLog,
 	auditLogRateLimit,
+	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -175,7 +176,7 @@ export async function handlePhoto(ctx: Context): Promise<void> {
 			} catch (editError) {
 				console.debug("Failed to edit status message:", editError);
 				await ctx.reply("❌ Failed to download photo.", {
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				});
 			}
 		} else {

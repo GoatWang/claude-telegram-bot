@@ -17,6 +17,7 @@ import { isAuthorized, rateLimiter } from "../security";
 import { sessionManager } from "../session";
 import {
 	auditLogRateLimit,
+	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -96,7 +97,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
 		if (!transcript) {
 			await ctx.api.deleteMessage(chatId, statusMsg.message_id);
 			await ctx.reply("❌ Transcription failed.", {
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			});
 			stopProcessing();
 			return;
@@ -116,7 +117,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
 		await ctx.api.deleteMessage(chatId, statusMsg.message_id);
 		await ctx.reply(`🎤 語音轉錄完成：\n\n"${transcript}"\n\n請選擇操作：`, {
 			reply_markup: keyboard,
-			message_effect_id: MESSAGE_EFFECTS.FIRE,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.FIRE),
 		});
 
 		// Processing will be handled by callback handler
@@ -140,7 +141,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
 			await ctx.reply(
 				"⚠️ Claude Code crashed and the session was reset. Please try again.",
 				{
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				},
 			);
 		} else {
@@ -148,7 +149,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
 				error instanceof Error ? error : new Error(errorStr),
 			);
 			await ctx.reply(`❌ ${userMessage}`, {
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			});
 		}
 	} finally {

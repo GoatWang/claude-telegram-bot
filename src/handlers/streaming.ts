@@ -18,6 +18,7 @@ import {
 import { convertMarkdownToHtml, escapeHtml } from "../formatting";
 import { safeTelegramCall, withRetry } from "../telegram-api";
 import { sessionManager } from "../session";
+import { effectFor } from "../utils";
 import type { StatusCallback } from "../types";
 
 /**
@@ -382,7 +383,7 @@ export function createStatusCallback(
 					await withRetry(() =>
 						ctx.reply(doneMessage, {
 							reply_markup: actionKeyboard,
-							message_effect_id: MESSAGE_EFFECTS.CONFETTI,
+							message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI),
 						}),
 					);
 				}

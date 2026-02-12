@@ -21,6 +21,7 @@ import {
 import { isAuthorized, isPathAllowed } from "../security";
 import { sessionManager } from "../session";
 import {
+	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -358,7 +359,7 @@ export async function handleResume(ctx: Context): Promise<void> {
 		await ctx.reply(`✅ ${message}`);
 	} else {
 		await ctx.reply(`❌ ${message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 	}
 }
@@ -511,7 +512,7 @@ export async function handleRetry(ctx: Context): Promise<void> {
 	// Check if there's a message to retry
 	if (!session.lastMessage) {
 		await ctx.reply("❌ No message to retry.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -695,7 +696,7 @@ export async function handleWorktree(ctx: Context): Promise<void> {
 	const status = await getWorkingTreeStatus(session.workingDir);
 	if (!status.success) {
 		await ctx.reply(`❌ ${status.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -752,7 +753,7 @@ export async function handleBranch(ctx: Context): Promise<void> {
 	const status = await getWorkingTreeStatus(session.workingDir);
 	if (!status.success) {
 		await ctx.reply(`❌ ${status.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -766,7 +767,7 @@ export async function handleBranch(ctx: Context): Promise<void> {
 	const result = await listBranches(session.workingDir);
 	if (!result.success) {
 		await ctx.reply(`❌ ${result.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -837,7 +838,7 @@ export async function handleMerge(ctx: Context): Promise<void> {
 	const status = await getWorkingTreeStatus(session.workingDir);
 	if (!status.success) {
 		await ctx.reply(`❌ ${status.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -851,7 +852,7 @@ export async function handleMerge(ctx: Context): Promise<void> {
 	const result = await getMergeInfo(session.workingDir);
 	if (!result.success) {
 		await ctx.reply(`❌ ${result.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -979,7 +980,7 @@ export async function handleCompact(ctx: Context): Promise<void> {
 
 	if (!session.isActive) {
 		await ctx.reply("❌ No active session to compact.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -1056,7 +1057,7 @@ export async function handleUndo(ctx: Context): Promise<void> {
 
 	if (!session.isActive) {
 		await ctx.reply("❌ No active session.", {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}
@@ -1079,7 +1080,7 @@ export async function handleUndo(ctx: Context): Promise<void> {
 		const chatId = ctx.chat?.id;
 		if (!chatId) {
 			await ctx.reply("❌ Unable to determine chat ID.", {
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			});
 			return;
 		}
@@ -1408,7 +1409,7 @@ export async function handleFile(ctx: Context): Promise<void> {
 	if (error) {
 		await ctx.reply(`❌ ${error}`, {
 			parse_mode: "HTML",
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 	}
 }
@@ -1633,7 +1634,7 @@ export async function handleDiff(ctx: Context): Promise<void> {
 
 	if (!result.success) {
 		await ctx.reply(`❌ ${result.message}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 		return;
 	}

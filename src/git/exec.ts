@@ -45,7 +45,8 @@ export async function execGit(
 			if (timedOut) {
 				resolve({
 					stdout,
-					stderr: stderr || `Git command timed out after ${GIT_COMMAND_TIMEOUT_MS}ms`,
+					stderr:
+						stderr || `Git command timed out after ${GIT_COMMAND_TIMEOUT_MS}ms`,
 					exitCode: 124,
 				});
 				return;

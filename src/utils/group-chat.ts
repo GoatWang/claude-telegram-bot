@@ -25,6 +25,15 @@ export async function checkInterrupt(text: string): Promise<string> {
 	return strippedText;
 }
 
+// ============== Message Effects ==============
+
+/**
+ * Returns effect ID only for private chats; groups don't support message effects.
+ */
+export function effectFor(ctx: Context, effectId: string): string | undefined {
+	return ctx.chat?.type === "private" ? effectId : undefined;
+}
+
 // ============== Group Chat Helpers ==============
 
 /**

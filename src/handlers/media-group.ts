@@ -12,7 +12,7 @@ import { formatUserError } from "../errors";
 import { rateLimiter } from "../security";
 import { sessionManager } from "../session";
 import type { PendingMediaGroup } from "../types";
-import { auditLogRateLimit } from "../utils";
+import { auditLogRateLimit, effectFor } from "../utils";
 
 /**
  * Configuration for a media group handler.
@@ -126,7 +126,7 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
 				await group.ctx.reply(
 					`❌ Failed to process ${config.itemLabelPlural}: ${errorStr}`,
 					{
-						message_effect_id: MESSAGE_EFFECTS.POOP,
+						message_effect_id: effectFor(group.ctx, MESSAGE_EFFECTS.POOP),
 					},
 				);
 			} catch (replyError) {
@@ -248,7 +248,7 @@ export async function handleProcessingError(
 		await ctx.reply(
 			"⚠️ Claude Code crashed and the session was reset. Please try again.",
 			{
-				message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+				message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 			},
 		);
 	} else {
@@ -256,7 +256,7 @@ export async function handleProcessingError(
 			error instanceof Error ? error : new Error(errorStr),
 		);
 		await ctx.reply(`❌ ${userMessage}`, {
-			message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+			message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 		});
 	}
 }

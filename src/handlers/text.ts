@@ -19,6 +19,7 @@ import { sessionManager } from "../session";
 import {
 	auditLog,
 	auditLogRateLimit,
+	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -140,7 +141,7 @@ export async function handleText(ctx: Context): Promise<void> {
 				`❌ Worktree path is not in allowed directories:\n<code>${result.path}</code>\n\nUpdate ALLOWED_PATHS and try again.`,
 				{
 					parse_mode: "HTML",
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				},
 			);
 			return;
@@ -184,7 +185,7 @@ export async function handleText(ctx: Context): Promise<void> {
 			const [isSafe, reason] = checkCommandSafety(shellCmd);
 			if (!isSafe) {
 				await ctx.reply(`🚫 Command blocked: ${reason}`, {
-					message_effect_id: MESSAGE_EFFECTS.POOP,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.POOP),
 				});
 				await auditLog(userId, username, "SHELL_BLOCKED", shellCmd, reason);
 				return;
@@ -311,12 +312,12 @@ export async function handleText(ctx: Context): Promise<void> {
 				await ctx.reply(
 					"⚠️ Claude Code crashed and the session was reset. Please try again.",
 					{
-						message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+						message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 					},
 				);
 			} else {
 				await ctx.reply(`❌ ${formatUserError(error as Error)}`, {
-					message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN,
+					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
 				});
 			}
 			break; // Exit loop after handling error
@@ -362,7 +363,7 @@ export async function handleText(ctx: Context): Promise<void> {
 			console.error("Error auto-processing pending message:", error);
 			await ctx.reply(
 				`❌ Failed to process queued message: ${formatUserError(error as Error)}`,
-				{ message_effect_id: MESSAGE_EFFECTS.THUMBS_DOWN },
+				{ message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN) },
 			);
 			// Stop auto-processing on error but don't lose remaining messages
 			break;
