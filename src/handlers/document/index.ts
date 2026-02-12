@@ -6,11 +6,7 @@
  */
 
 import type { Context } from "grammy";
-import {
-	ALLOWED_USERS,
-	BOT_USERNAME,
-	MESSAGE_EFFECTS,
-} from "../../config";
+import { ALLOWED_USERS, BOT_USERNAME, MESSAGE_EFFECTS } from "../../config";
 import { isAuthorized, rateLimiter } from "../../security";
 import {
 	auditLogRateLimit,
