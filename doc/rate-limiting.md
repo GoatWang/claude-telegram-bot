@@ -60,14 +60,14 @@ Intelligently batches and merges messages by priority:
 
 **After:**
 ```
-🔧 Tools
+⚙️ Tools
 🔧 Reading file.ts...
 📝 Editing config.json...
 🔍 Grepping pattern...
 ✓ Writing output.txt
 2/4 complete
 ```
-1 merged message, updated only when status changes
+1 merged message with animated spinner (⚙️ → 🔧 → ⚡ → 💫), updated immediately when status changes
 
 ### 3. Integration in `streaming.ts`
 
@@ -118,6 +118,9 @@ Typical scenario (5 tools, 50 seconds):
 
 - ✅ Cleaner interface (fewer spam messages)
 - ✅ Single tool overview shows progress at a glance
+- ✅ **Animated spinner** - Visual feedback that system is working (prevents "stuck" feeling)
+- ✅ **Immediate updates** - Tool status changes update instantly (not batched)
+- ✅ **Responsive batching** - 1.5s delay instead of 3s for text updates
 - ✅ No rate limit errors (429)
 - ✅ Faster response (less API overhead)
 - ✅ Critical messages (buttons, done) still immediate
@@ -191,6 +194,15 @@ To test with heavy tool usage:
 - Can disable tool merging via `MERGE_TOOL_STATUSES=false`
 - Original behavior available by disabling both
 
+## Responsiveness Optimizations
+
+To prevent "stuck" feeling:
+
+1. **Tool updates are immediate** - Not batched, updated as soon as status changes
+2. **Animated spinner** - Cycles through emoji (⚙️ → 🔧 → ⚡ → 💫) every 1s to show activity
+3. **Shorter delays** - Text batching uses 1.5s instead of 3s
+4. **Smart rate limiting** - Only delays when actually approaching limits
+
 ## Future Improvements
 
 Potential enhancements:
@@ -198,3 +210,4 @@ Potential enhancements:
 - [ ] Message coalescing for rapid text updates (skip intermediate edits)
 - [ ] Priority queue preemption (cancel low-priority pending on critical)
 - [ ] Metrics collection (track API call reduction over time)
+- [ ] User-configurable spinner speed and style

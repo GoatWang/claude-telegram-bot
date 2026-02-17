@@ -77,8 +77,8 @@ interface BatchConfig {
 
 const DEFAULT_CONFIG: BatchConfig = {
 	enabled: true,
-	highPriorityDelay: 100,
-	normalPriorityDelay: 3000,
+	highPriorityDelay: 100, // 100ms - barely noticeable
+	normalPriorityDelay: 1500, // 1.5s instead of 3s - more responsive
 	mergeToolStatuses: true,
 	showThinking: false,
 };
@@ -94,6 +94,7 @@ export class TelegramMessageQueue {
 	// Tool status tracking for merging
 	private activeTools = new Map<number, ToolStatusUpdate[]>(); // chatId -> tools
 	private toolOverviewMessages = new Map<number, Message>(); // chatId -> message
+	private toolSpinners = new Map<number, ReturnType<typeof setInterval>>(); // chatId -> spinner interval
 
 	constructor(config?: Partial<BatchConfig>) {
 		this.config = { ...DEFAULT_CONFIG, ...config };
@@ -170,6 +171,9 @@ export class TelegramMessageQueue {
 
 	/**
 	 * Update tool overview message with current tool statuses.
+	 *
+	 * IMPORTANT: This method updates IMMEDIATELY (not batched) to provide
+	 * real-time feedback and avoid feeling "stuck".
 	 */
 	private async updateToolOverview(
 		ctx: Context,
@@ -194,11 +198,26 @@ export class TelegramMessageQueue {
 			setTimeout(() => {
 				tools = tools.filter((t) => t.toolName !== toolName);
 				this.activeTools.set(chatId, tools);
+				// Update overview after removing completed tool
+				this.updateToolOverviewMessage(ctx, chatId, tools).catch(() => {});
 			}, 2000);
 		}
 
 		this.activeTools.set(chatId, tools);
 
+		// Update the overview message immediately
+		await this.updateToolOverviewMessage(ctx, chatId, tools);
+	}
+
+	/**
+	 * Update the tool overview message (separated for reuse).
+	 */
+	private async updateToolOverviewMessage(
+		ctx: Context,
+		chatId: number,
+		tools: ToolStatusUpdate[],
+		spinnerFrame?: string,
+	): Promise<void> {
 		// Format overview message
 		const running = tools.filter((t) => t.status === "running");
 		const done = tools.filter((t) => t.status === "done");
@@ -214,10 +233,14 @@ export class TelegramMessageQueue {
 				}
 				this.toolOverviewMessages.delete(chatId);
 			}
+			// Stop spinner
+			this.stopToolSpinner(chatId);
 			return;
 		}
 
-		let overview = "🔧 <b>Tools</b>\n";
+		// Add spinner to show activity
+		const spinner = spinnerFrame || "⚙️";
+		let overview = `${spinner} <b>Tools</b>\n`;
 
 		if (running.length > 0) {
 			overview += running.map((t) => `${t.emoji} ${t.toolName}...`).join("\n");
@@ -234,6 +257,7 @@ export class TelegramMessageQueue {
 		// Create or update overview message
 		const existingMsg = this.toolOverviewMessages.get(chatId);
 
+		// IMMEDIATE update (not rate-limited aggressively) for better UX
 		await telegramRateLimiter.acquireSlot(chatId);
 
 		if (existingMsg) {
@@ -260,6 +284,54 @@ export class TelegramMessageQueue {
 				ctx.reply(overview, { parse_mode: "HTML" }),
 			);
 			this.toolOverviewMessages.set(chatId, newMsg);
+
+			// Start spinner animation if there are running tools
+			if (running.length > 0) {
+				this.startToolSpinner(ctx, chatId);
+			}
+		}
+	}
+
+	/**
+	 * Start spinner animation for tool overview.
+	 */
+	private startToolSpinner(ctx: Context, chatId: number): void {
+		// Stop existing spinner if any
+		this.stopToolSpinner(chatId);
+
+		const spinnerFrames = ["⚙️", "🔧", "⚡", "💫"];
+		let frameIndex = 0;
+
+		const interval = setInterval(async () => {
+			const tools = this.activeTools.get(chatId);
+			if (!tools || tools.filter((t) => t.status === "running").length === 0) {
+				this.stopToolSpinner(chatId);
+				return;
+			}
+
+			frameIndex = (frameIndex + 1) % spinnerFrames.length;
+			await this.updateToolOverviewMessage(
+				ctx,
+				chatId,
+				tools,
+				spinnerFrames[frameIndex],
+			).catch(() => {
+				// Stop on error
+				this.stopToolSpinner(chatId);
+			});
+		}, 1000); // Update spinner every 1 second
+
+		this.toolSpinners.set(chatId, interval);
+	}
+
+	/**
+	 * Stop spinner animation for tool overview.
+	 */
+	private stopToolSpinner(chatId: number): void {
+		const interval = this.toolSpinners.get(chatId);
+		if (interval) {
+			clearInterval(interval);
+			this.toolSpinners.delete(chatId);
 		}
 	}
 
@@ -381,6 +453,9 @@ export class TelegramMessageQueue {
 	 * Delete tool overview message for a chat (when done).
 	 */
 	async deleteToolOverview(ctx: Context, chatId: number): Promise<void> {
+		// Stop spinner first
+		this.stopToolSpinner(chatId);
+
 		const msg = this.toolOverviewMessages.get(chatId);
 		if (msg) {
 			try {
