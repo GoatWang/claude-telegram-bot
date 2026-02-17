@@ -93,13 +93,23 @@ Add to your `.env`:
 
 ```bash
 # Telegram API rate limiting
-TELEGRAM_RATE_LIMIT_DEBUG=false
+TELEGRAM_RATE_LIMIT_DEBUG=false              # Debug logging
+TELEGRAM_MAX_PER_SECOND=25                   # Global limit (Telegram: 30)
+TELEGRAM_MAX_PER_MINUTE_PER_CHAT=18          # Per-chat limit (Telegram: 20)
 
 # Message batching and optimization
-MESSAGE_BATCHING_ENABLED=true      # Enable batching (default: true)
-MERGE_TOOL_STATUSES=true          # Merge tools into overview (default: true)
-SHOW_THINKING_MESSAGES=false      # Show thinking messages (default: false)
+MESSAGE_BATCHING_ENABLED=true                # Enable batching (default: true)
+MERGE_TOOL_STATUSES=true                    # Merge tools into overview (default: true)
+SHOW_THINKING_MESSAGES=false                # Show thinking messages (default: false)
 ```
+
+### Rate Limit Tuning
+
+The defaults (25/s global, 18/min per-chat) leave a safety buffer. You can:
+
+- **Be more conservative**: Lower the limits (e.g., `TELEGRAM_MAX_PER_MINUTE_PER_CHAT=15`)
+- **Be more aggressive**: Increase closer to limits (e.g., `TELEGRAM_MAX_PER_MINUTE_PER_CHAT=19`)
+- **Debug issues**: Enable `TELEGRAM_RATE_LIMIT_DEBUG=true` to see delay calculations
 
 ## Impact
 
@@ -129,12 +139,24 @@ Typical scenario (5 tools, 50 seconds):
 
 ### Rate Limiter Algorithm
 
-Uses sliding window token bucket:
-1. Maintains array of recent API call timestamps
-2. Before each call, calculates calls in last 1s (global) and 1min (per-chat)
-3. If at limit, calculates delay needed for oldest call to expire
-4. Automatically sleeps before making call
-5. Periodically cleans up old timestamps (>1 minute)
+Uses sliding window with dual limits:
+
+**Global Limit (30/s)**:
+1. Tracks all API calls in last 1 second
+2. If ≥25 calls, calculates delay until oldest call expires
+3. Prevents hitting Telegram's global 30/s limit
+
+**Per-Chat Limit (20/min)**:
+1. Tracks API calls per chat in last 60 seconds
+2. If ≥18 calls to same chat, calculates delay until oldest expires
+3. Prevents hitting Telegram's per-chat 20/min limit
+
+**Combined**:
+- Uses `Math.max(globalDelay, chatDelay)` - respects both limits
+- Automatically sleeps before making call
+- Periodically cleans up old timestamps (>1 minute)
+
+**Example**: If you send 18 messages to a chat in 30 seconds, the 19th message will be delayed until the 60-second window allows it, even if global limit is OK.
 
 ### Message Queue Architecture
 

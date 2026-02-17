@@ -193,4 +193,10 @@ export class TelegramRateLimiter {
 // Global singleton instance
 export const telegramRateLimiter = new TelegramRateLimiter({
 	debug: process.env.TELEGRAM_RATE_LIMIT_DEBUG === "true",
+	maxPerSecond: process.env.TELEGRAM_MAX_PER_SECOND
+		? Number.parseInt(process.env.TELEGRAM_MAX_PER_SECOND, 10)
+		: undefined,
+	maxPerMinutePerChat: process.env.TELEGRAM_MAX_PER_MINUTE_PER_CHAT
+		? Number.parseInt(process.env.TELEGRAM_MAX_PER_MINUTE_PER_CHAT, 10)
+		: undefined,
 });
