@@ -4,6 +4,8 @@
  * Provides error handling and automatic retry for transient Telegram API failures.
  */
 
+import { telegramRateLimiter } from "./telegram-rate-limiter";
+
 /**
  * Options for retry behavior.
  */

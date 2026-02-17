@@ -318,6 +318,7 @@ export const LOG_LEVEL: LogLevel = ["debug", "info", "warn", "error"].includes(
 
 // ============== Rate Limiting ==============
 
+// User rate limiting (requests per user)
 export const RATE_LIMIT_ENABLED =
 	(process.env.RATE_LIMIT_ENABLED || "true").toLowerCase() === "true";
 export const RATE_LIMIT_REQUESTS = Number.parseInt(
@@ -328,6 +329,18 @@ export const RATE_LIMIT_WINDOW = Number.parseInt(
 	process.env.RATE_LIMIT_WINDOW || "60",
 	10,
 );
+
+// Telegram API rate limiting (global limits)
+export const TELEGRAM_RATE_LIMIT_DEBUG =
+	(process.env.TELEGRAM_RATE_LIMIT_DEBUG || "false").toLowerCase() === "true";
+
+// Message batching and optimization
+export const MESSAGE_BATCHING_ENABLED =
+	(process.env.MESSAGE_BATCHING_ENABLED || "true").toLowerCase() === "true";
+export const MERGE_TOOL_STATUSES =
+	(process.env.MERGE_TOOL_STATUSES || "true").toLowerCase() === "true";
+export const SHOW_THINKING_MESSAGES =
+	(process.env.SHOW_THINKING_MESSAGES || "false").toLowerCase() === "true";
 
 // ============== File Paths ==============
 

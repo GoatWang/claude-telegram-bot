@@ -20,6 +20,12 @@ import { safeTelegramCall, withRetry } from "../telegram-api";
 import { sessionManager } from "../session";
 import { effectFor } from "../utils";
 import type { StatusCallback } from "../types";
+import {
+	telegramMessageQueue,
+	MessagePriority,
+	MessageType,
+} from "../telegram-message-queue";
+import { telegramRateLimiter } from "../telegram-rate-limiter";
 
 /**
  * Create inline keyboard for ask_user options.
@@ -138,16 +144,26 @@ export function createStatusCallback(
 	) => {
 		try {
 			if (statusType === "thinking") {
-				// Show thinking inline, compact (first 500 chars)
+				// Enqueue thinking message (LOW priority, may be hidden by config)
 				const preview =
 					content.length > 500 ? `${content.slice(0, 500)}...` : content;
 				const escaped = escapeHtml(preview);
-				const thinkingMsg = await withRetry(() =>
-					ctx.reply(`🧠 <i>${escaped}</i>`, {
-						parse_mode: "HTML",
-					}),
+
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.THINKING,
+					MessagePriority.LOW,
+					`🧠 <i>${escaped}</i>`,
+					async () => {
+						const msg = await withRetry(() =>
+							ctx.reply(`🧠 <i>${escaped}</i>`, {
+								parse_mode: "HTML",
+							}),
+						);
+						state.toolMessages.push(msg);
+						return msg;
+					},
 				);
-				state.toolMessages.push(thinkingMsg);
 			} else if (statusType === "tool") {
 				// Stop previous tool spinner if any
 				state.stopToolSpinner();
@@ -157,34 +173,23 @@ export function createStatusCallback(
 				state.currentToolContent = content;
 				state.spinnerIndex = 0;
 
-				// Send initial tool message with spinner
-				const initialContent = `${content} ${SPINNER_FRAMES[0]}`;
-				const toolMsg = await withRetry(() =>
-					ctx.reply(initialContent, { parse_mode: "HTML" }),
+				// Extract tool name and emoji from content (format: "emoji tool_name")
+				const match = content.match(/^(.+?)\s+(.+)$/);
+				const emoji = match?.[1] || "🔧";
+				const toolName = match?.[2] || "Tool";
+
+				// Enqueue tool status (will be merged with other tools)
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.TOOL_STATUS,
+					MessagePriority.LOW,
+					emoji,
+					async () => ctx.reply(content, { parse_mode: "HTML" }),
+					{ toolName, toolStatus: "running" },
 				);
-				state.toolMessages.push(toolMsg);
-				state.currentToolMsg = toolMsg;
 
-				// Start spinner animation (every 3 seconds)
-				state.toolSpinnerInterval = setInterval(async () => {
-					if (!state.currentToolMsg) return;
-
-					state.spinnerIndex = (state.spinnerIndex + 1) % SPINNER_FRAMES.length;
-					const spinner = SPINNER_FRAMES[state.spinnerIndex];
-					const newContent = `${state.currentToolContent} ${spinner}`;
-
-					try {
-						await ctx.api.editMessageText(
-							state.currentToolMsg.chat.id,
-							state.currentToolMsg.message_id,
-							newContent,
-							{ parse_mode: "HTML" },
-						);
-					} catch {
-						// Message may have been deleted, stop spinner
-						state.stopToolSpinner();
-					}
-				}, TOOL_SPINNER_INTERVAL_MS);
+				// Note: We no longer use individual tool messages with spinners
+				// Tools are now displayed in a merged overview message
 			} else if (statusType === "text" && segmentId !== undefined) {
 				// New text segment means tool finished, stop spinner
 				state.stopToolSpinner();
@@ -192,78 +197,95 @@ export function createStatusCallback(
 				const lastEdit = state.lastEditTimes.get(segmentId) || 0;
 
 				if (!state.textMessages.has(segmentId)) {
-					// New segment - create message
+					// New segment - create message (HIGH priority)
 					const display =
 						content.length > TELEGRAM_SAFE_LIMIT
 							? `${content.slice(0, TELEGRAM_SAFE_LIMIT)}...`
 							: content;
 					const formatted = convertMarkdownToHtml(display);
-					try {
-						const msg = await withRetry(() =>
-							ctx.reply(formatted, { parse_mode: "HTML" }),
-						);
-						state.textMessages.set(segmentId, msg);
-						state.lastContent.set(segmentId, formatted);
-					} catch (htmlError) {
-						// Only retry without HTML on confirmed API rejection (400),
-						// not on network errors where the message may have already been delivered
-						if (
-							htmlError instanceof GrammyError &&
-							htmlError.error_code === 400
-						) {
-							console.debug(
-								"HTML parse rejected by Telegram, using plain text:",
-								htmlError.description,
-							);
-							const msg = await withRetry(() => ctx.reply(display));
-							state.textMessages.set(segmentId, msg);
-							state.lastContent.set(segmentId, display);
-						} else {
-							// Network error or other issue - log and continue
-							// withRetry already attempted retries, so this is a persistent failure
-							console.error(
-								"Failed to send segment message after retries:",
-								htmlError,
-							);
-							// Continue execution - don't crash the bot
-						}
-					}
+
+					await telegramMessageQueue.enqueue(
+						ctx,
+						MessageType.TEXT_UPDATE,
+						MessagePriority.HIGH,
+						formatted,
+						async () => {
+							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+							try {
+								const msg = await withRetry(() =>
+									ctx.reply(formatted, { parse_mode: "HTML" }),
+								);
+								state.textMessages.set(segmentId, msg);
+								state.lastContent.set(segmentId, formatted);
+								return msg;
+							} catch (htmlError) {
+								if (
+									htmlError instanceof GrammyError &&
+									htmlError.error_code === 400
+								) {
+									console.debug(
+										"HTML parse rejected by Telegram, using plain text:",
+										htmlError.description,
+									);
+									const msg = await withRetry(() => ctx.reply(display));
+									state.textMessages.set(segmentId, msg);
+									state.lastContent.set(segmentId, display);
+									return msg;
+								}
+								console.error(
+									"Failed to send segment message after retries:",
+									htmlError,
+								);
+								throw htmlError;
+							}
+						},
+						{ segmentId },
+					);
 					state.lastEditTimes.set(segmentId, now);
 				} else if (now - lastEdit > STREAMING_THROTTLE_MS) {
-					// Update existing segment message (throttled)
+					// Update existing segment message (NORMAL priority, throttled and batched)
 					const msg = state.textMessages.get(segmentId)!;
 					const display =
 						content.length > TELEGRAM_SAFE_LIMIT
 							? `${content.slice(0, TELEGRAM_SAFE_LIMIT)}...`
 							: content;
 					const formatted = convertMarkdownToHtml(display);
+
 					// Skip if content unchanged
 					if (formatted === state.lastContent.get(segmentId)) {
 						return;
 					}
-					const editResult = await safeTelegramCall("editMessage", async () => {
-						try {
-							await ctx.api.editMessageText(
-								msg.chat.id,
-								msg.message_id,
-								formatted,
-								{ parse_mode: "HTML" },
-							);
-							return true;
-						} catch (htmlError) {
-							// HTML parse failed, try plain text
-							console.debug("HTML edit failed, trying plain text:", htmlError);
-							await ctx.api.editMessageText(
-								msg.chat.id,
-								msg.message_id,
-								formatted,
-							);
-							return true;
-						}
-					});
-					if (editResult) {
-						state.lastContent.set(segmentId, formatted);
-					}
+
+					await telegramMessageQueue.enqueue(
+						ctx,
+						MessageType.TEXT_UPDATE,
+						MessagePriority.NORMAL,
+						formatted,
+						async () => {
+							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+							try {
+								await ctx.api.editMessageText(
+									msg.chat.id,
+									msg.message_id,
+									formatted,
+									{ parse_mode: "HTML" },
+								);
+								state.lastContent.set(segmentId, formatted);
+								return msg;
+							} catch (htmlError) {
+								console.debug("HTML edit failed, trying plain text:", htmlError);
+								await ctx.api.editMessageText(
+									msg.chat.id,
+									msg.message_id,
+									formatted,
+								);
+								state.lastContent.set(segmentId, formatted);
+								return msg;
+							}
+						},
+						{ segmentId, messageId: msg.message_id },
+					);
+
 					state.lastEditTimes.set(segmentId, now);
 				}
 			} else if (statusType === "segment_end" && segmentId !== undefined) {
@@ -277,6 +299,7 @@ export function createStatusCallback(
 					}
 
 					if (formatted.length <= TELEGRAM_MESSAGE_LIMIT) {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
 						await safeTelegramCall("editFinalMessage", () =>
 							ctx.api.editMessageText(msg.chat.id, msg.message_id, formatted, {
 								parse_mode: "HTML",
@@ -285,16 +308,17 @@ export function createStatusCallback(
 					} else {
 						// Too long - delete and split
 						try {
+							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
 							await ctx.api.deleteMessage(msg.chat.id, msg.message_id);
 						} catch (error) {
 							console.debug("Failed to delete message for splitting:", error);
 						}
 						for (let i = 0; i < formatted.length; i += TELEGRAM_SAFE_LIMIT) {
 							const chunk = formatted.slice(i, i + TELEGRAM_SAFE_LIMIT);
+							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
 							try {
 								await withRetry(() => ctx.reply(chunk, { parse_mode: "HTML" }));
 							} catch (htmlError) {
-								// Only retry on confirmed 400 parse rejection to avoid duplicate chunks
 								if (
 									htmlError instanceof GrammyError &&
 									htmlError.error_code === 400
@@ -309,38 +333,74 @@ export function createStatusCallback(
 										"Failed to send chunk after retries:",
 										htmlError,
 									);
-									// Continue with next chunk - don't crash
 								}
 							}
 						}
 					}
 				}
 			} else if (statusType === "timeout_check") {
-				// Show timeout prompt with inline keyboard
+				// Show timeout prompt with inline keyboard (CRITICAL priority)
 				const keyboard = new InlineKeyboard()
 					.text("✋ 中斷", "timeout:abort")
 					.text("▶️ 繼續", "timeout:continue");
-				const timeoutMsg = await withRetry(() =>
-					ctx.reply(content, {
-						reply_markup: keyboard,
-					}),
+
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.BUTTON,
+					MessagePriority.CRITICAL,
+					content,
+					async () => {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+						const msg = await withRetry(() =>
+							ctx.reply(content, {
+								reply_markup: keyboard,
+							}),
+						);
+						state.toolMessages.push(msg);
+						return msg;
+					},
 				);
-				state.toolMessages.push(timeoutMsg); // Will be deleted when done
 			} else if (statusType === "queued") {
-				// User's query was queued - show position
-				const queueMsg = await withRetry(() => ctx.reply(`⏳ ${content}`));
-				state.toolMessages.push(queueMsg);
+				// User's query was queued - show position (HIGH priority)
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.NOTIFICATION,
+					MessagePriority.HIGH,
+					`⏳ ${content}`,
+					async () => {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+						const msg = await withRetry(() => ctx.reply(`⏳ ${content}`));
+						state.toolMessages.push(msg);
+						return msg;
+					},
+				);
 			} else if (statusType === "queue_start") {
-				// Queued query is now starting
-				const startMsg = await withRetry(() => ctx.reply(`🚀 ${content}`));
-				state.toolMessages.push(startMsg);
+				// Queued query is now starting (HIGH priority)
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.NOTIFICATION,
+					MessagePriority.HIGH,
+					`🚀 ${content}`,
+					async () => {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+						const msg = await withRetry(() => ctx.reply(`🚀 ${content}`));
+						state.toolMessages.push(msg);
+						return msg;
+					},
+				);
 			} else if (statusType === "done") {
 				// Stop any running tool spinner
 				state.stopToolSpinner();
 
+				// Delete tool overview message if exists
+				if (chatId) {
+					await telegramMessageQueue.deleteToolOverview(ctx, chatId);
+				}
+
 				// Delete tool messages - text messages stay
 				for (const toolMsg of state.toolMessages) {
 					try {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
 						await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
 					} catch (error) {
 						console.debug("Failed to delete tool message:", error);
@@ -374,17 +434,27 @@ export function createStatusCallback(
 						}
 					}
 
-					// Show action buttons after response completes with confetti effect
+					// Show action buttons after response completes (CRITICAL priority)
 					const actionKeyboard = new InlineKeyboard()
 						.text("Undo", "action:undo")
 						.text("Commit", "action:commit")
 						.text("Yes", "action:yes")
 						.text("Handoff", "action:handoff");
-					await withRetry(() =>
-						ctx.reply(doneMessage, {
-							reply_markup: actionKeyboard,
-							message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI),
-						}),
+
+					await telegramMessageQueue.enqueue(
+						ctx,
+						MessageType.BUTTON,
+						MessagePriority.CRITICAL,
+						doneMessage,
+						async () => {
+							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+							return await withRetry(() =>
+								ctx.reply(doneMessage, {
+									reply_markup: actionKeyboard,
+									message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI),
+								}),
+							);
+						},
 					);
 				}
 			}
