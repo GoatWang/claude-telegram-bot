@@ -63,10 +63,6 @@ class ClaudeSession {
 	totalOutputTokens = 0;
 	totalCacheReadTokens = 0;
 
-	// Auto handoff tracking
-	private warned100K = false;
-	private warned120K = false;
-
 	// File checkpointing for /undo
 	private _queryInstance: Query | null = null;
 	private _userMessageUuids: string[] = [];
@@ -437,9 +433,6 @@ class ClaudeSession {
 		if (chatId) {
 			process.env.TELEGRAM_CHAT_ID = String(chatId);
 		}
-
-		// Check for auto handoff before sending message
-		await this.checkAutoHandoff(statusCallback);
 
 		const isNewSession = !this.isActive;
 
@@ -1090,137 +1083,6 @@ class ClaudeSession {
 			return [false, `Failed to load session: ${error}`];
 		}
 	}
-
-	/**
-	 * Check if auto handoff should be triggered and show warnings.
-	 */
-	private async checkAutoHandoff(statusCallback: StatusCallback): Promise<void> {
-		// Skip if auto handoff is disabled
-		const { AUTO_HANDOFF_ENABLED, AUTO_HANDOFF_WARNING, AUTO_HANDOFF_THRESHOLD } =
-			await import("../config");
-
-		if (!AUTO_HANDOFF_ENABLED) {
-			return;
-		}
-
-		const currentTokens = this.totalInputTokens + this.totalOutputTokens;
-
-		// Show warning at 100K tokens
-		if (currentTokens > AUTO_HANDOFF_WARNING && !this.warned100K) {
-			const tokensK = Math.round(currentTokens / 1000);
-			const thresholdK = Math.round(AUTO_HANDOFF_THRESHOLD / 1000);
-			await statusCallback(
-				"notification",
-				`⚠️ Context at ${tokensK}K tokens (handoff at ${thresholdK}K)`,
-			);
-			this.warned100K = true;
-		}
-
-		// Trigger auto handoff at threshold (120K)
-		if (currentTokens > AUTO_HANDOFF_THRESHOLD) {
-			if (!this.warned120K) {
-				await statusCallback(
-					"notification",
-					"🔄 Auto-handoff triggered (preserving context...)",
-				);
-				this.warned120K = true;
-			}
-
-			await this.performAutoHandoff();
-		}
-	}
-
-	/**
-	 * Perform automatic handoff to new session with context summary.
-	 */
-	private async performAutoHandoff(): Promise<void> {
-		console.log("Performing auto-handoff...");
-
-		// Generate summary of recent conversation
-		const summary = this.generateContextSummary();
-
-		// Store handoff context for next session
-		this.storeHandoffContext(summary);
-
-		// Reset session (clears agent, tokens, etc.)
-		await this.stopStreaming();
-		this.sessionId = null;
-		this.lastActivity = null;
-		this.totalInputTokens = 0;
-		this.totalOutputTokens = 0;
-		this.totalCacheReadTokens = 0;
-		this.warned100K = false;
-		this.warned120K = false;
-
-		// Agent will be recreated on next sendMessage
-		console.log("Auto-handoff complete - session reset with context preserved");
-	}
-
-	/**
-	 * Generate a summary of recent conversation for handoff.
-	 */
-	private generateContextSummary(): string {
-		const lines: string[] = [];
-
-		lines.push("## Previous Session Context");
-		lines.push("");
-
-		// Include working directory
-		lines.push(`Working directory: ${this._workingDir}`);
-		lines.push("");
-
-		// Include last few messages
-		if (this.lastMessage) {
-			lines.push("Last user request:");
-			lines.push(this.lastMessage.slice(0, 500)); // First 500 chars
-			lines.push("");
-		}
-
-		if (this.lastBotResponse) {
-			lines.push("Last response:");
-			lines.push(this.lastBotResponse.slice(0, 500)); // First 500 chars
-			lines.push("");
-		}
-
-		// Include last tool used
-		if (this.lastTool) {
-			lines.push(`Last tool used: ${this.lastTool}`);
-			lines.push("");
-		}
-
-		// Include any pending worktree
-		if (this._pendingWorktree) {
-			lines.push(`Pending worktree: ${this._pendingWorktree.name}`);
-			lines.push("");
-		}
-
-		lines.push("---");
-		lines.push("");
-		lines.push(
-			"Note: This session was automatically reset due to context length. Continue the conversation below.",
-		);
-
-		return lines.join("\n");
-	}
-
-	/**
-	 * Store handoff context for next session initialization.
-	 */
-	private storeHandoffContext(summary: string): void {
-		this._handoffContext = summary;
-	}
-
-	/**
-	 * Consume handoff context (returns and clears it).
-	 */
-	private consumeHandoffContext(): string | null {
-		const context = this._handoffContext;
-		this._handoffContext = null;
-		return context;
-	}
-
-	// Handoff context storage
-	private _handoffContext: string | null = null;
 }
 
 // Export class for testing

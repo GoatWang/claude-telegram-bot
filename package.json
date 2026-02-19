@@ -1,6 +1,6 @@
 {
 	"name": "ctb",
-	"version": "1.7.0",
+	"version": "1.6.5",
 	"description": "Control Claude Code from Telegram - run multiple bot instances per project",
 	"type": "module",
 	"bin": {
