@@ -294,34 +294,20 @@ export class TelegramMessageQueue {
 
 	/**
 	 * Start spinner animation for tool overview.
+	 *
+	 * IMPORTANT: Spinner updates are DISABLED to avoid rate limiting.
+	 * Each editMessageText counts as an API call, and updating every few
+	 * seconds would quickly exhaust the 18 msgs/min per-chat limit.
+	 *
+	 * Instead, we only update when tool status actually changes.
 	 */
 	private startToolSpinner(ctx: Context, chatId: number): void {
 		// Stop existing spinner if any
 		this.stopToolSpinner(chatId);
 
-		const spinnerFrames = ["⚙️", "🔧", "⚡", "💫"];
-		let frameIndex = 0;
-
-		const interval = setInterval(async () => {
-			const tools = this.activeTools.get(chatId);
-			if (!tools || tools.filter((t) => t.status === "running").length === 0) {
-				this.stopToolSpinner(chatId);
-				return;
-			}
-
-			frameIndex = (frameIndex + 1) % spinnerFrames.length;
-			await this.updateToolOverviewMessage(
-				ctx,
-				chatId,
-				tools,
-				spinnerFrames[frameIndex],
-			).catch(() => {
-				// Stop on error
-				this.stopToolSpinner(chatId);
-			});
-		}, 1000); // Update spinner every 1 second
-
-		this.toolSpinners.set(chatId, interval);
+		// Spinner animation is DISABLED - see comment above
+		// We rely on tool status changes to update the overview message
+		// This keeps us well within rate limits
 	}
 
 	/**

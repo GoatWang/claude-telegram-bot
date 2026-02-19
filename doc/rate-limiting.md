@@ -60,14 +60,14 @@ Intelligently batches and merges messages by priority:
 
 **After:**
 ```
-⚙️ Tools
+🔧 Tools
 🔧 Reading file.ts...
 📝 Editing config.json...
 🔍 Grepping pattern...
 ✓ Writing output.txt
 2/4 complete
 ```
-1 merged message with animated spinner (⚙️ → 🔧 → ⚡ → 💫), updated immediately when status changes
+1 merged message, updated immediately when tool status changes (no spinner to avoid rate limits)
 
 ### 3. Integration in `streaming.ts`
 
@@ -218,12 +218,14 @@ To test with heavy tool usage:
 
 ## Responsiveness Optimizations
 
-To prevent "stuck" feeling:
+To prevent "stuck" feeling while staying within rate limits:
 
 1. **Tool updates are immediate** - Not batched, updated as soon as status changes
-2. **Animated spinner** - Cycles through emoji (⚙️ → 🔧 → ⚡ → 💫) every 1s to show activity
+2. **No animated spinner** - Removed to avoid excessive API calls (each edit = 1 API call)
 3. **Shorter delays** - Text batching uses 1.5s instead of 3s
 4. **Smart rate limiting** - Only delays when actually approaching limits
+
+**Why no spinner?** Each `editMessageText()` counts as 1 API call toward the 20 msgs/min limit. Updating a spinner every 1-3 seconds would quickly exhaust the limit. Instead, the overview updates immediately when tool status changes (start/done), providing real-time feedback without excessive API calls.
 
 ## Future Improvements
 
