@@ -37,6 +37,8 @@ export async function handleActionCallback(
 	// Handle handoff separately - it's not a command but a special action
 	if (action === "handoff") {
 		await ctx.answerCallbackQuery({ text: "Starting handoff..." });
+		// Echo user's choice
+		await ctx.reply("👆 選擇: Handoff");
 		const lastResponse = session.lastBotResponse;
 
 		if (!lastResponse) {
@@ -71,6 +73,17 @@ export async function handleActionCallback(
 	}
 
 	await ctx.answerCallbackQuery({ text: `執行 ${command}...` });
+
+	// Map action to display name
+	const actionDisplayMap: Record<string, string> = {
+		undo: "Undo",
+		commit: "Commit",
+		yes: "Yes",
+	};
+	const displayName = actionDisplayMap[action] || action;
+
+	// Echo user's choice
+	await ctx.reply(`👆 選擇: ${displayName}`);
 
 	// Send the command to Claude
 	const typing = startTypingIndicator(ctx);

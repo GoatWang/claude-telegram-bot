@@ -312,7 +312,10 @@ export function createStatusCallback(
 								state.lastContent.set(segmentId, formatted);
 								return msg;
 							} catch (htmlError) {
-								console.debug("HTML edit failed, trying plain text:", htmlError);
+								console.debug(
+									"HTML edit failed, trying plain text:",
+									htmlError,
+								);
 								await ctx.api.editMessageText(
 									msg.chat.id,
 									msg.message_id,
@@ -446,56 +449,55 @@ export function createStatusCallback(
 					}
 				}
 
-				if (state.hasToolExecution) {
-					// Build usage info string if available
-					let doneMessage = "Done";
-					if (usage) {
-						const inK = Math.round(usage.input_tokens / 1000);
-						const outK = Math.round(usage.output_tokens / 1000);
-						const cacheK = usage.cache_read_input_tokens
-							? Math.round(usage.cache_read_input_tokens / 1000)
-							: 0;
-						doneMessage += ` | ${inK}K→${outK}K`;
-						if (cacheK > 0) {
-							doneMessage += ` (⚡${cacheK}K)`;
-						}
+				// Build usage info string if available
+				// Action buttons now always shown (not conditional on hasToolExecution)
+				let doneMessage = "Done";
+				if (usage) {
+					const inK = Math.round(usage.input_tokens / 1000);
+					const outK = Math.round(usage.output_tokens / 1000);
+					const cacheK = usage.cache_read_input_tokens
+						? Math.round(usage.cache_read_input_tokens / 1000)
+						: 0;
+					doneMessage += ` | ${inK}K→${outK}K`;
+					if (cacheK > 0) {
+						doneMessage += ` (⚡${cacheK}K)`;
 					}
-
-					// Check session total token usage and add warning if needed
-					if (chatId) {
-						const session = sessionManager.getSession(chatId);
-						const totalTokens =
-							session.totalInputTokens + session.totalOutputTokens;
-
-						if (totalTokens > TOKEN_WARNING_THRESHOLD) {
-							const totalK = Math.round(totalTokens / 1000);
-							doneMessage += ` | ⚠️ ${totalK}K total`;
-						}
-					}
-
-					// Show action buttons after response completes (CRITICAL priority)
-					const actionKeyboard = new InlineKeyboard()
-						.text("Undo", "action:undo")
-						.text("Commit", "action:commit")
-						.text("Yes", "action:yes")
-						.text("Handoff", "action:handoff");
-
-					await telegramMessageQueue.enqueue(
-						ctx,
-						MessageType.BUTTON,
-						MessagePriority.CRITICAL,
-						doneMessage,
-						async () => {
-							await telegramRateLimiter.acquireSlot(ctx.chat?.id);
-							return await withRetry(() =>
-								ctx.reply(doneMessage, {
-									reply_markup: actionKeyboard,
-									message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI),
-								}),
-							);
-						},
-					);
 				}
+
+				// Check session total token usage and add warning if needed
+				if (chatId) {
+					const session = sessionManager.getSession(chatId);
+					const totalTokens =
+						session.totalInputTokens + session.totalOutputTokens;
+
+					if (totalTokens > TOKEN_WARNING_THRESHOLD) {
+						const totalK = Math.round(totalTokens / 1000);
+						doneMessage += ` | ⚠️ ${totalK}K total`;
+					}
+				}
+
+				// Show action buttons after response completes (CRITICAL priority)
+				const actionKeyboard = new InlineKeyboard()
+					.text("Undo", "action:undo")
+					.text("Commit", "action:commit")
+					.text("Yes", "action:yes")
+					.text("Handoff", "action:handoff");
+
+				await telegramMessageQueue.enqueue(
+					ctx,
+					MessageType.BUTTON,
+					MessagePriority.CRITICAL,
+					doneMessage,
+					async () => {
+						await telegramRateLimiter.acquireSlot(ctx.chat?.id);
+						return await withRetry(() =>
+							ctx.reply(doneMessage, {
+								reply_markup: actionKeyboard,
+								message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.CONFETTI),
+							}),
+						);
+					},
+				);
 			}
 		} catch (error) {
 			console.error("Status callback error:", error);
