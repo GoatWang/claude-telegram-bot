@@ -342,6 +342,24 @@ export const MERGE_TOOL_STATUSES =
 export const SHOW_THINKING_MESSAGES =
 	(process.env.SHOW_THINKING_MESSAGES || "false").toLowerCase() === "true";
 
+// ============== Auto Handoff ==============
+
+// Enable automatic context handoff when approaching token limit
+export const AUTO_HANDOFF_ENABLED =
+	(process.env.AUTO_HANDOFF_ENABLED || "true").toLowerCase() === "true";
+
+// Token threshold for triggering auto handoff (default: 120K, conservative buffer)
+export const AUTO_HANDOFF_THRESHOLD = Number.parseInt(
+	process.env.AUTO_HANDOFF_THRESHOLD || "120000",
+	10,
+);
+
+// Token threshold for warning user (default: 100K)
+export const AUTO_HANDOFF_WARNING = Number.parseInt(
+	process.env.AUTO_HANDOFF_WARNING || "100000",
+	10,
+);
+
 // ============== File Paths ==============
 
 // Generate a short hash for instance isolation
