@@ -24,6 +24,7 @@ import {
 	isBotMentioned,
 	startTypingIndicator,
 } from "../utils";
+import { storeCommand } from "../utils/command-cache";
 import { createOrReuseWorktree } from "../worktree";
 import { createStatusCallback, StreamingState } from "./streaming";
 
@@ -193,7 +194,7 @@ export async function handleText(ctx: Context): Promise<void> {
 
 			// Show confirmation prompt with inline keyboard
 			const cwd = session.workingDir;
-			const encodedCmd = Buffer.from(shellCmd).toString("base64");
+			const encodedCmd = storeCommand(shellCmd, userId);
 			const keyboard = new InlineKeyboard()
 				.text("Run", `shell:run:${encodedCmd}`)
 				.text("Cancel", "shell:cancel");

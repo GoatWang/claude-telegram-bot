@@ -141,7 +141,9 @@ export async function extractArchive(
 		const extractedSize = await getDirectorySize(extractDir);
 		if (extractedSize > MAX_EXTRACTED_SIZE) {
 			// Clean up and throw
-			await Bun.$`rm -rf ${extractDir}`.quiet();
+			await import("node:fs/promises").then((fs) =>
+				fs.rm(extractDir, { recursive: true, force: true }),
+			);
 			throw new Error(
 				`Archive too large when extracted (${Math.round(extractedSize / 1024 / 1024)}MB > ${Math.round(MAX_EXTRACTED_SIZE / 1024 / 1024)}MB limit)`,
 			);
@@ -151,7 +153,9 @@ export async function extractArchive(
 	} catch (error) {
 		// Clean up on any error
 		try {
-			await Bun.$`rm -rf ${extractDir}`.quiet();
+			await import("node:fs/promises").then((fs) =>
+				fs.rm(extractDir, { recursive: true, force: true }),
+			);
 		} catch {
 			// Ignore cleanup errors
 		}

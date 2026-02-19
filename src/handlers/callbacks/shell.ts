@@ -6,6 +6,7 @@ import type { Context } from "grammy";
 import { MESSAGE_EFFECTS } from "../../config";
 import { sessionManager } from "../../session";
 import { auditLog, effectFor } from "../../utils";
+import { retrieveCommand } from "../../utils/command-cache";
 import { execShellCommand } from "../text";
 
 /**
@@ -32,12 +33,17 @@ export async function handleShellCallback(
 	}
 
 	if (action === "run") {
-		const encodedCmd = parts.slice(2).join(":"); // Handle colons in base64
-		let shellCmd: string;
-		try {
-			shellCmd = Buffer.from(encodedCmd, "base64").toString("utf-8");
-		} catch {
-			await ctx.answerCallbackQuery({ text: "Invalid command" });
+		const encodedCmd = parts.slice(2).join(":"); // Handle colons in encoded data
+		const shellCmd = retrieveCommand(encodedCmd, userId);
+		if (!shellCmd) {
+			await ctx.answerCallbackQuery({
+				text: "Command expired or invalid",
+			});
+			try {
+				await ctx.editMessageText("❌ Command expired or invalid");
+			} catch {
+				// Message may have been deleted
+			}
 			return;
 		}
 

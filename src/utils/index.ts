@@ -21,3 +21,8 @@ export {
 	sendPrivateMessage,
 	handleUnauthorized,
 } from "./group-chat";
+export {
+	storeCommand,
+	retrieveCommand,
+	getCacheStats,
+} from "./command-cache";

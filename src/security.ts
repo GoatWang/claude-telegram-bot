@@ -128,9 +128,19 @@ export const rateLimiter = new RateLimiter();
 
 export function isPathAllowed(path: string): boolean {
 	try {
+		// Block obvious path traversal patterns
+		if (path.includes("..") || path.includes("//")) {
+			return false;
+		}
+
 		// Expand ~ and resolve to absolute path
 		const expanded = path.replace(/^~/, process.env.HOME || "");
 		const normalized = normalize(expanded);
+
+		// Block null bytes
+		if (normalized.includes("\0")) {
+			return false;
+		}
 
 		// Try to resolve symlinks (may fail if path doesn't exist yet)
 		let resolved: string;
@@ -140,9 +150,23 @@ export function isPathAllowed(path: string): boolean {
 			resolved = resolve(normalized);
 		}
 
+		// Ensure the resolved path doesn't escape via normalization
+		// Re-check for path traversal after resolution
+		if (
+			resolved.includes("..") ||
+			!resolved.startsWith("/") ||
+			resolved.includes("\0")
+		) {
+			return false;
+		}
+
 		// Always allow temp paths (for bot's own files)
 		for (const tempPath of TEMP_PATHS) {
-			if (resolved.startsWith(tempPath)) {
+			const tempResolved = resolve(tempPath);
+			if (
+				resolved === tempResolved ||
+				resolved.startsWith(`${tempResolved}/`)
+			) {
 				return true;
 			}
 		}

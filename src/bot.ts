@@ -45,6 +45,7 @@ import {
 	handleWorktree,
 } from "./handlers";
 import { safeUnlink } from "./utils/temp-cleanup";
+import { sessionManager } from "./session";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
@@ -143,13 +144,19 @@ bot.catch((err) => {
 });
 
 // ============== PID Lock ==============
+// Skip PID lock in development mode (bun --watch would trigger false positives)
+const isDev = process.env.NODE_ENV === "development";
 
-const lockResult = acquirePidLock(PID_LOCK_FILE);
-if (!lockResult.acquired) {
-	console.error(
-		`Another instance is already running (PID ${lockResult.existingPid}). Exiting.`,
-	);
-	process.exit(1);
+if (!isDev) {
+	const lockResult = acquirePidLock(PID_LOCK_FILE);
+	if (!lockResult.acquired) {
+		console.error(
+			`Another instance is already running (PID ${lockResult.existingPid}). Exiting.`,
+		);
+		process.exit(1);
+	}
+} else {
+	console.log("Development mode: PID lock disabled");
 }
 
 // ============== Startup ==============
@@ -241,6 +248,8 @@ const stopRunner = () => {
 
 process.on("SIGINT", () => {
 	console.log("Received SIGINT");
+	console.log("Flushing all sessions...");
+	sessionManager.flushAllSessions();
 	releasePidLock(PID_LOCK_FILE);
 	stopRunner();
 	process.exit(0);
@@ -248,6 +257,8 @@ process.on("SIGINT", () => {
 
 process.on("SIGTERM", () => {
 	console.log("Received SIGTERM");
+	console.log("Flushing all sessions...");
+	sessionManager.flushAllSessions();
 	releasePidLock(PID_LOCK_FILE);
 	stopRunner();
 	process.exit(0);

@@ -91,7 +91,9 @@ export async function processArchive(
 		);
 
 		// Cleanup
-		await Bun.$`rm -rf ${extractDir}`.quiet();
+		await import("node:fs/promises").then((fs) =>
+			fs.rm(extractDir, { recursive: true, force: true }),
+		);
 
 		// Delete status message
 		try {

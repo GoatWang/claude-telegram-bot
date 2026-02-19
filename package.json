@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"start": "bun run src/bot.ts",
-		"dev": "bun --watch run src/bot.ts",
+		"dev": "NODE_ENV=development bun --watch run src/bot.ts",
 		"ctb": "bun run src/cli.ts",
 		"typecheck": "bun run --bun tsc --noEmit",
 		"test": "bun test",
