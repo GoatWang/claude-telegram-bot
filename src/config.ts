@@ -187,10 +187,12 @@ export const BLOCKED_PATTERNS = [
 	"ncat -l",
 	// Process/system manipulation
 	"kill -9 1",
-	"killall",
+	"killall ",
 	"pkill -9",
-	"shutdown",
-	"reboot",
+	"shutdown ",
+	"shutdown -",
+	" reboot",
+	"reboot ",
 	"init 0",
 	"init 6",
 	// History/log tampering

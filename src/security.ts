@@ -230,10 +230,35 @@ export function checkCommandSafety(
 ): [safe: boolean, reason: string] {
 	const lowerCommand = command.toLowerCase();
 
-	// Check blocked patterns first
+	// Check blocked patterns with context-aware matching
 	for (const pattern of BLOCKED_PATTERNS) {
-		if (lowerCommand.includes(pattern.toLowerCase())) {
-			return [false, `Blocked pattern: ${pattern}`];
+		const lowerPattern = pattern.toLowerCase();
+		const index = lowerCommand.indexOf(lowerPattern);
+
+		if (index !== -1) {
+			// Check if this is a command word (not part of a string argument)
+			const before = index > 0 ? lowerCommand[index - 1] : " ";
+			const after = index + lowerPattern.length < lowerCommand.length
+				? lowerCommand[index + lowerPattern.length]
+				: " ";
+
+			// Allow if pattern is clearly inside a quoted string or git message
+			const isInString =
+				lowerCommand.includes(`"${lowerPattern}"`) ||
+				lowerCommand.includes(`'${lowerPattern}'`) ||
+				lowerCommand.match(/git\s+commit.*-m.*["'].*$/i);
+
+			// For command-like patterns (ending with space or -), check word boundaries
+			if (!isInString && (pattern.endsWith(" ") || pattern.endsWith("-"))) {
+				// Must be preceded by command separator or start of string
+				const isCommand = /[\s;&|^]/.test(before) || index === 0;
+				if (isCommand) {
+					return [false, `Blocked pattern: ${pattern}`];
+				}
+			} else if (!isInString) {
+				// For other patterns, block if found
+				return [false, `Blocked pattern: ${pattern}`];
+			}
 		}
 	}
 
