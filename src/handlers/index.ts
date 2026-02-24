@@ -4,6 +4,7 @@
 
 export { handleCallback } from "./callbacks";
 export {
+	createCustomCommandHandler,
 	handleBookmarks,
 	handleBranch,
 	handleCd,

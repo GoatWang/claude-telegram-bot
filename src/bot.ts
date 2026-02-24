@@ -18,6 +18,7 @@ import {
 } from "./config";
 import { acquirePidLock, releasePidLock } from "./pid-lock";
 import {
+	createCustomCommandHandler,
 	handleBookmarks,
 	handleBranch,
 	handleCallback,
@@ -44,6 +45,7 @@ import {
 	handleVoice,
 	handleWorktree,
 } from "./handlers";
+import { scanCustomCommands } from "./commands-scanner";
 import { safeUnlink } from "./utils/temp-cleanup";
 import { sessionManager } from "./session";
 
@@ -174,7 +176,7 @@ setBotUsername(botInfo.username || "");
 console.log(`Bot started: @${botInfo.username}`);
 
 // Set up Telegram menu commands
-await bot.api.setMyCommands([
+const menuCommands = [
 	{ command: "start", description: "Show status and user ID" },
 	{ command: "new", description: "Start a fresh session" },
 	{ command: "resume", description: "Resume last session" },
@@ -197,7 +199,28 @@ await bot.api.setMyCommands([
 	{ command: "skill", description: "Invoke a Claude Code skill" },
 	{ command: "bookmarks", description: "Manage directory bookmarks" },
 	{ command: "restart", description: "Restart the bot" },
-]);
+];
+
+// Scan and register custom commands from .claude/commands/
+const builtinNames = new Set(menuCommands.map((c) => c.command));
+const customCommands = scanCustomCommands(WORKING_DIR);
+let registeredCustom = 0;
+
+for (const cmd of customCommands) {
+	if (builtinNames.has(cmd.name)) {
+		console.warn(`Skipping custom command "${cmd.name}": conflicts with built-in command`);
+		continue;
+	}
+	bot.command(cmd.name, createCustomCommandHandler(cmd.content));
+	menuCommands.push({ command: cmd.name, description: cmd.description });
+	registeredCustom++;
+}
+
+if (registeredCustom > 0) {
+	console.log(`Registered ${registeredCustom} custom command(s) from .claude/commands/`);
+}
+
+await bot.api.setMyCommands(menuCommands);
 console.log("Menu commands registered");
 
 // Check for pending restart message to update

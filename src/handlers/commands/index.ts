@@ -31,6 +31,8 @@ export {
 	handleDiff,
 } from "./git";
 
+export { createCustomCommandHandler } from "./custom";
+
 export { executeRestart, handleRestart } from "./restart";
 
 export {

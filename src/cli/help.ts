@@ -2,12 +2,24 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Read version from package.json
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const packageJsonPath = join(__dirname, "..", "..", "package.json");
-const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-export const VERSION = packageJson.version;
+// Read version from package.json (with fallback for compiled binaries)
+// CTB_BUILD_VERSION is injected at compile time via --define
+declare const CTB_BUILD_VERSION: string | undefined;
+
+let version = "unknown";
+try {
+	if (typeof CTB_BUILD_VERSION !== "undefined") {
+		version = CTB_BUILD_VERSION;
+	} else {
+		const __filename = fileURLToPath(import.meta.url);
+		const __dirname = dirname(__filename);
+		const packageJsonPath = join(__dirname, "..", "..", "package.json");
+		version = JSON.parse(readFileSync(packageJsonPath, "utf-8")).version;
+	}
+} catch {
+	// Compiled binary — package.json not available at runtime
+}
+export const VERSION = version;
 
 export function showHelp(): void {
 	console.log(`
