@@ -9,6 +9,7 @@ import {
 	AGENT_PROVIDERS,
 	type AgentProviderId,
 	ALLOWED_PATHS,
+	CHROME_ENABLED,
 	MAX_CONCURRENT_QUERIES,
 	MCP_SERVERS,
 	QUERY_TIMEOUT_MS,
@@ -503,6 +504,11 @@ class ClaudeSession {
 		// Add Claude Code executable path if set (required for standalone builds)
 		if (process.env.CLAUDE_CODE_PATH) {
 			options.pathToClaudeCodeExecutable = process.env.CLAUDE_CODE_PATH;
+		}
+
+		// Enable Chrome browser automation via --chrome CLI flag
+		if (CHROME_ENABLED) {
+			options.extraArgs = { ...options.extraArgs, chrome: null };
 		}
 
 		if (this.sessionId && !isNewSession) {

@@ -69,6 +69,11 @@ async function main(): Promise<void> {
 	// Set CTB_INSTANCE_DIR for session isolation
 	process.env.CTB_INSTANCE_DIR = workingDir;
 
+	// Enable Chrome browser automation if --chrome flag is set
+	if (options.chrome) {
+		process.env.CTB_CHROME = "true";
+	}
+
 	// Ensure .claude directory and config exist
 	ensureClaudeConfig(workingDir);
 

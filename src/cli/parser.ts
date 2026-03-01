@@ -2,6 +2,7 @@ export interface CliOptions {
 	token?: string;
 	users?: string;
 	dir?: string;
+	chrome?: boolean;
 	help?: boolean;
 	version?: boolean;
 	tut?: boolean;
@@ -23,6 +24,8 @@ export function parseArgs(args: string[]): CliOptions {
 			options.users = arg.slice(8);
 		} else if (arg.startsWith("--dir=")) {
 			options.dir = arg.slice(6);
+		} else if (arg === "--chrome") {
+			options.chrome = true;
 		}
 	}
 

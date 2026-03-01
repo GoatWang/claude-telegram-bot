@@ -103,6 +103,11 @@ try {
 
 export { MCP_SERVERS };
 
+// ============== Chrome Browser Automation ==============
+
+export const CHROME_ENABLED =
+	(process.env.CTB_CHROME || "").toLowerCase() === "true";
+
 // ============== Security Configuration ==============
 
 // Allowed directories for file operations (WORKING_DIR includes .worktrees subdirectory)
