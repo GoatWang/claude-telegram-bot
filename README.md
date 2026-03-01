@@ -7,6 +7,34 @@
 
 **中文說明**: [README.zh.md](README.zh.md)
 
+## Fork Features
+
+This fork adds the following features on top of the upstream:
+
+1. **Telegram command hints from `.claude/commands/`**: Custom commands defined in `.claude/commands/*.md` are automatically registered as Telegram menu commands, so users see them as autocomplete hints when typing `/` in the chat.
+
+2. **`--chrome` flag for Chrome browser automation**: Pass `--chrome` when starting `ctb` to enable Claude in Chrome MCP integration, allowing Claude to control a Chrome browser via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/) extension.
+
+### Install from this fork
+
+```bash
+git clone https://github.com/GoatWang/claude-telegram-bot
+cd claude-telegram-bot
+bun install
+
+# Build and install the standalone binary
+bun build --compile src/cli/index.ts --outfile /usr/local/bin/ctb
+# or on Apple Silicon:
+bun build --compile src/cli/index.ts --outfile /opt/homebrew/bin/ctb
+```
+
+Then run from any project directory:
+
+```bash
+ctb                # Standard mode
+ctb --chrome       # With Chrome browser automation
+```
+
 ## Overview
 
 Claude Telegram Bot connects Telegram → Claude Code and streams responses (including tool status) back to your chat. It’s built with Bun + grammY and uses the official Claude Agent SDK.
