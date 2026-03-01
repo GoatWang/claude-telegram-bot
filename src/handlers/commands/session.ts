@@ -45,11 +45,26 @@ export async function handleStart(ctx: Context): Promise<void> {
 		modeInfo = " \u{1F468}\u200D\u{1F4BB} \u958B\u767C\u6A21\u5F0F";
 	}
 
+	// Check for web server config in project
+	let webInfo = "";
+	try {
+		const configPath = `${workDir}/config.json`;
+		const configJson = await Bun.file(configPath).json();
+		const ws = configJson.web_server;
+		if (ws) {
+			const ip = ws.fixed_ip || "localhost";
+			const port = ws.external_port || ws.port || 8800;
+			webInfo = `\nWeb: http://${ip}:${port}`;
+		}
+	} catch {
+		// No config.json or no web_server section
+	}
+
 	await ctx.reply(
 		`\u{1F916} <b>Claude Telegram Bot${modeInfo}</b>
 
 Status: ${status}
-Working directory: <code>${workDir}</code>
+Working directory: <code>${workDir}</code>${webInfo}
 
 <b>Session:</b>
 /new - Start fresh session
