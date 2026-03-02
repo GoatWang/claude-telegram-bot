@@ -108,6 +108,22 @@ export { MCP_SERVERS };
 export const CHROME_ENABLED =
 	(process.env.CTB_CHROME || "").toLowerCase() === "true";
 
+// ============== Claude Code Setting Sources ==============
+
+// Controls which CLAUDE.md / settings files Claude Code loads.
+// "user" = ~/.claude/CLAUDE.md (global, shared across ALL sessions)
+// "project" = .claude/CLAUDE.md (per-project, isolated)
+// Default to "project" only to prevent cross-session memory leakage.
+// Set CLAUDE_SETTING_SOURCES=user,project to restore the old behavior.
+const settingSourcesStr = process.env.CLAUDE_SETTING_SOURCES || "project";
+export const SETTING_SOURCES: Array<"user" | "project" | "local"> =
+	settingSourcesStr
+		.split(",")
+		.map((s) => s.trim().toLowerCase())
+		.filter((s): s is "user" | "project" | "local" =>
+			["user", "project", "local"].includes(s),
+		);
+
 // ============== Security Configuration ==============
 
 // Allowed directories for file operations (WORKING_DIR includes .worktrees subdirectory)

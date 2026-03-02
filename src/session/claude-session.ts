@@ -15,6 +15,7 @@ import {
 	QUERY_TIMEOUT_MS,
 	SAFETY_PROMPT,
 	SESSION_FILE,
+	SETTING_SOURCES,
 	STREAMING_THROTTLE_MS,
 	TEMP_PATHS,
 	TIMEOUT_PROMPT_WAIT_MS,
@@ -490,7 +491,7 @@ class ClaudeSession {
 		const options: Options = {
 			model: modelId,
 			cwd: this._workingDir,
-			settingSources: ["user", "project"],
+			settingSources: SETTING_SOURCES,
 			permissionMode: this.planMode ? "plan" : "bypassPermissions",
 			allowDangerouslySkipPermissions: !this.planMode,
 			systemPrompt: SAFETY_PROMPT,
