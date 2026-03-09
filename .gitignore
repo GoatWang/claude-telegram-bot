@@ -49,3 +49,6 @@ mcp-config.ts
 
 # compiled binary
 /ctb
+
+# prompts/screenshots
+prompts

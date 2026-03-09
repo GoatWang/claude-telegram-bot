@@ -174,6 +174,10 @@ export function isPathAllowed(path: string): boolean {
 		// Check against allowed paths using proper containment
 		for (const allowed of ALLOWED_PATHS) {
 			const allowedResolved = resolve(allowed);
+			// Special case: root path "/" allows everything
+			if (allowedResolved === "/") {
+				return true;
+			}
 			if (
 				resolved === allowedResolved ||
 				resolved.startsWith(`${allowedResolved}/`)
