@@ -7,6 +7,7 @@
 
 import type { Context } from "grammy";
 import { TEMP_DIR } from "../../config";
+import { logTelemetry } from "../../telemetry";
 import {
 	ARCHIVE_EXTENSIONS,
 	MAX_ARCHIVE_CONTENT,
@@ -49,12 +50,20 @@ export async function extractText(
 ): Promise<string> {
 	const fileName = filePath.split("/").pop() || "";
 	const extension = `.${(fileName.split(".").pop() || "").toLowerCase()}`;
+	const startedAt = Date.now();
 
 	// PDF extraction using pdftotext CLI (install: brew install poppler)
 	if (mimeType === "application/pdf" || extension === ".pdf") {
 		try {
 			const result = await Bun.$`pdftotext -layout ${filePath} -`.quiet();
-			return result.text();
+			const text = result.text();
+			logTelemetry("document_extract_complete", {
+				file_name: fileName,
+				file_type: "pdf",
+				duration_ms: Date.now() - startedAt,
+				chars: text.length,
+			});
+			return text;
 		} catch (error) {
 			console.error("PDF parsing failed:", error);
 			return "[PDF parsing failed - ensure pdftotext is installed: brew install poppler]";
@@ -65,7 +74,14 @@ export async function extractText(
 	if (TEXT_EXTENSIONS.includes(extension) || mimeType?.startsWith("text/")) {
 		const text = await Bun.file(filePath).text();
 		// Limit to 100K chars
-		return text.slice(0, 100000);
+		const truncated = text.slice(0, 100000);
+		logTelemetry("document_extract_complete", {
+			file_name: fileName,
+			file_type: "text",
+			duration_ms: Date.now() - startedAt,
+			chars: truncated.length,
+		});
+		return truncated;
 	}
 
 	throw new Error(`Unsupported file type: ${extension || mimeType}`);

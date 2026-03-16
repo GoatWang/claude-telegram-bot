@@ -9,6 +9,7 @@ import type { Context } from "grammy";
 import { MESSAGE_EFFECTS } from "../../config";
 import { queryQueue } from "../../query-queue";
 import { sessionManager } from "../../session";
+import { logTelemetry } from "../../telemetry";
 import { auditLog, effectFor, startTypingIndicator } from "../../utils";
 import { cleanupTempFile, cleanupTempFiles } from "../../utils/temp-cleanup";
 import { handleProcessingError } from "../media-group";
@@ -33,6 +34,7 @@ export async function processArchive(
 ): Promise<void> {
 	// Get session for this chat
 	const session = sessionManager.getSession(chatId);
+	const startedAt = Date.now();
 
 	const stopProcessing = session.startProcessing();
 	const typing = startTypingIndicator(ctx);
@@ -89,6 +91,15 @@ export async function processArchive(
 			`[${fileName}] ${caption || ""}`,
 			response,
 		);
+		logTelemetry("archive_process_complete", {
+			chat_id: chatId,
+			user_id: userId,
+			file_name: fileName,
+			duration_ms: Date.now() - startedAt,
+			file_count: tree.length,
+			readable_count: contents.length,
+			response_chars: response.length,
+		});
 
 		// Cleanup
 		await import("node:fs/promises").then((fs) =>
@@ -133,6 +144,7 @@ export async function processDocuments(
 ): Promise<void> {
 	// Get session for this chat
 	const session = sessionManager.getSession(chatId);
+	const startedAt = Date.now();
 
 	// Mark processing started
 	const stopProcessing = session.startProcessing();
@@ -178,6 +190,14 @@ export async function processDocuments(
 			`[${documents.length} docs] ${caption || ""}`,
 			response,
 		);
+		logTelemetry("document_process_complete", {
+			chat_id: chatId,
+			user_id: userId,
+			document_count: documents.length,
+			prompt_chars: prompt.length,
+			response_chars: response.length,
+			duration_ms: Date.now() - startedAt,
+		});
 	} catch (error) {
 		await handleProcessingError(ctx, error, state.toolMessages, chatId);
 	} finally {
@@ -200,6 +220,7 @@ export async function processDocumentPaths(
 	chatId: number,
 ): Promise<void> {
 	// Extract text from all documents
+	const startedAt = Date.now();
 	const documents: Array<{ path: string; name: string; content: string }> = [];
 
 	for (const path of paths) {
@@ -218,6 +239,14 @@ export async function processDocumentPaths(
 		});
 		return;
 	}
+
+	logTelemetry("document_batch_extract_complete", {
+		chat_id: chatId,
+		user_id: userId,
+		requested_count: paths.length,
+		extracted_count: documents.length,
+		duration_ms: Date.now() - startedAt,
+	});
 
 	await processDocuments(ctx, documents, caption, userId, username, chatId);
 }

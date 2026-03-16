@@ -8,6 +8,7 @@
 import type { Context } from "grammy";
 import { ALLOWED_USERS, BOT_USERNAME, MESSAGE_EFFECTS } from "../../config";
 import { isAuthorized, rateLimiter } from "../../security";
+import { logTelemetry } from "../../telemetry";
 import {
 	auditLogRateLimit,
 	effectFor,
@@ -37,6 +38,7 @@ const documentBuffer = createMediaGroupBuffer({
 	emoji: "📄",
 	itemLabel: "document",
 	itemLabelPlural: "documents",
+	showStatusMessages: false,
 });
 
 /**
@@ -96,7 +98,15 @@ export async function handleDocument(ctx: Context): Promise<void> {
 	// 4. Download document
 	let docPath: string;
 	try {
+		const startedAt = Date.now();
 		docPath = await downloadDocument(ctx);
+		logTelemetry("document_download_complete", {
+			chat_id: chatId,
+			user_id: userId,
+			file_name: fileName,
+			is_album: Boolean(mediaGroupId),
+			duration_ms: Date.now() - startedAt,
+		});
 	} catch (error) {
 		console.error("Failed to download document:", error);
 		await ctx.reply("❌ Failed to download document.", {
