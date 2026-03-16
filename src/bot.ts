@@ -46,11 +46,13 @@ import {
 	handleWorktree,
 } from "./handlers";
 import { scanCustomCommands } from "./commands-scanner";
+import { createTelegramRetryTransformer } from "./telegram-api";
 import { safeUnlink } from "./utils/temp-cleanup";
 import { sessionManager } from "./session";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
+bot.api.config.use(createTelegramRetryTransformer());
 
 // ============== Update Deduplication ==============
 // Prevents processing the same Telegram update twice (e.g., during bot restarts,

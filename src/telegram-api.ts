@@ -4,6 +4,7 @@
  * Provides error handling and automatic retry for transient Telegram API failures.
  */
 
+import type { RawApi, Transformer } from "grammy";
 import { telegramRateLimiter } from "./telegram-rate-limiter";
 
 /**
@@ -47,7 +48,7 @@ export class TelegramApiError extends Error {
 	 * Returns true if this error is transient and can be retried.
 	 */
 	get isTransient(): boolean {
-		return isTransientError(this);
+		return isTransientTelegramError(this);
 	}
 }
 
@@ -56,6 +57,8 @@ export class TelegramApiError extends Error {
  */
 const NETWORK_ERROR_PATTERNS = [
 	"etimedout",
+	"timeouterror",
+	"timed out",
 	"econnreset",
 	"enotfound",
 	"eai_again",
@@ -67,7 +70,7 @@ const NETWORK_ERROR_PATTERNS = [
 /**
  * Check if an error is transient (can be retried).
  */
-function isTransientError(error: unknown): boolean {
+export function isTransientTelegramError(error: unknown): boolean {
 	if (error instanceof TelegramApiError) {
 		// 429 Too Many Requests
 		if (error.statusCode === 429) {
@@ -141,7 +144,7 @@ export async function withRetry<T>(
 			lastError = error instanceof Error ? error : new Error(String(error));
 
 			// Don't retry non-transient errors
-			if (!isTransientError(error)) {
+			if (!isTransientTelegramError(error)) {
 				throw lastError;
 			}
 
@@ -194,4 +197,67 @@ export async function safeTelegramCall<T>(
 		console.debug(`Telegram API ${operation} failed:`, error);
 		return options?.fallback;
 	}
+}
+
+function parseMethodRetryOptions(method: string): Required<RetryOptions> {
+	const isPolling = method === "getUpdates";
+	return {
+		maxRetries: isPolling ? 4 : DEFAULT_RETRY_OPTIONS.maxRetries,
+		baseDelay: isPolling ? 1500 : DEFAULT_RETRY_OPTIONS.baseDelay,
+		maxDelay: DEFAULT_RETRY_OPTIONS.maxDelay,
+	};
+}
+
+function formatRetryLogPrefix(method: string): string {
+	return method === "getUpdates" ? "[polling]" : "[telegram]";
+}
+
+/**
+ * Create a grammY API transformer that retries transient Telegram API failures.
+ *
+ * This centralizes resilience for both polling (`getUpdates`) and write calls
+ * (`sendMessage`, `editMessageText`, etc.) without patching every call site.
+ */
+export function createTelegramRetryTransformer(): Transformer<RawApi> {
+	return async (prev, method, payload, signal) => {
+		const opts = parseMethodRetryOptions(method);
+		let lastError: Error | undefined;
+
+		for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
+			try {
+				return await prev(method, payload, signal);
+			} catch (error) {
+				lastError = error instanceof Error ? error : new Error(String(error));
+
+				if (!isTransientTelegramError(error)) {
+					throw lastError;
+				}
+
+				if (attempt >= opts.maxRetries) {
+					break;
+				}
+
+				const exponentialDelay = opts.baseDelay * 2 ** (attempt - 1);
+				const jitter = Math.random() * 0.1 * exponentialDelay;
+				const calculatedDelay = exponentialDelay + jitter;
+				const retryAfter = parseRetryAfter(error);
+				const delay = Math.min(
+					retryAfter && retryAfter > calculatedDelay
+						? retryAfter
+						: calculatedDelay,
+					opts.maxDelay,
+				);
+
+				const prefix = formatRetryLogPrefix(method);
+				const errorMessage = lastError.message.split("\n")[0] || "unknown error";
+				console.warn(
+					`${prefix} transient ${method} failure, retry ${attempt}/${opts.maxRetries} in ${Math.round(delay)}ms: ${errorMessage}`,
+				);
+
+				await Bun.sleep(delay);
+			}
+		}
+
+		throw lastError!;
+	};
 }

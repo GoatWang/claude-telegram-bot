@@ -3,7 +3,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { TelegramApiError, withRetry } from "../telegram-api";
+import {
+	createTelegramRetryTransformer,
+	isTransientTelegramError,
+	TelegramApiError,
+	withRetry,
+} from "../telegram-api";
 
 describe("withRetry", () => {
 	test("succeeds on first attempt", async () => {
@@ -76,5 +81,57 @@ describe("TelegramApiError", () => {
 	test("isTransient returns false for bad request", () => {
 		const error = new TelegramApiError("Bad Request: message not found", 400);
 		expect(error.isTransient).toBe(false);
+	});
+});
+
+describe("isTransientTelegramError", () => {
+	test("returns true for Bun timeout errors", () => {
+		const error = new Error("TimeoutError: The operation timed out.");
+		expect(isTransientTelegramError(error)).toBe(true);
+	});
+
+	test("returns true for ECONNRESET", () => {
+		const error = new Error("socket closed unexpectedly ECONNRESET");
+		expect(isTransientTelegramError(error)).toBe(true);
+	});
+});
+
+describe("createTelegramRetryTransformer", () => {
+	test("retries transient sendMessage failures", async () => {
+		let attempts = 0;
+		const transformer = createTelegramRetryTransformer();
+
+		const result = await transformer(
+			(async () => {
+				attempts++;
+				if (attempts < 3) {
+					throw new Error("ECONNRESET");
+				}
+				return { ok: true, result: "sent" };
+			}) as any,
+			"sendMessage",
+			{} as never,
+		);
+
+		expect(result).toEqual({ ok: true, result: "sent" } as any);
+		expect(attempts).toBe(3);
+	});
+
+	test("does not retry non-transient getUpdates failures", async () => {
+		let attempts = 0;
+		const transformer = createTelegramRetryTransformer();
+
+		await expect(
+			transformer(
+				(async () => {
+					attempts++;
+					throw new Error("401 Unauthorized");
+				}) as any,
+				"getUpdates",
+				{} as never,
+			),
+		).rejects.toThrow("401 Unauthorized");
+
+		expect(attempts).toBe(1);
 	});
 });
