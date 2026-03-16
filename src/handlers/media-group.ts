@@ -24,6 +24,8 @@ export interface MediaGroupConfig {
 	itemLabel: string;
 	/** Plural label for items (e.g., "photos" or "documents") */
 	itemLabelPlural: string;
+	/** Whether to send temporary "receiving/processing" status messages */
+	showStatusMessages?: boolean;
 }
 
 /**
@@ -69,7 +71,7 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
 		);
 
 		// Update status message
-		if (group.statusMsg) {
+		if (config.showStatusMessages !== false && group.statusMsg) {
 			try {
 				await group.ctx.api.editMessageText(
 					group.statusMsg.chat.id,
@@ -92,7 +94,7 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
 			);
 
 			// Delete status message on success
-			if (group.statusMsg) {
+			if (config.showStatusMessages !== false && group.statusMsg) {
 				try {
 					await group.ctx.api.deleteMessage(
 						group.statusMsg.chat.id,
@@ -109,7 +111,7 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
 			);
 
 			// Delete status message on error
-			if (group.statusMsg) {
+			if (config.showStatusMessages !== false && group.statusMsg) {
 				try {
 					await group.ctx.api.deleteMessage(
 						group.statusMsg.chat.id,
@@ -163,9 +165,12 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
 
 			// Create new group
 			console.log(`Receiving ${config.itemLabel} album from @${username}`);
-			const statusMsg = await ctx.reply(
-				`${config.emoji} Receiving ${config.itemLabelPlural}...`,
-			);
+			const statusMsg =
+				config.showStatusMessages === false
+					? undefined
+					: await ctx.reply(
+							`${config.emoji} Receiving ${config.itemLabelPlural}...`,
+						);
 
 			pendingGroups.set(mediaGroupId, {
 				items: [itemPath],

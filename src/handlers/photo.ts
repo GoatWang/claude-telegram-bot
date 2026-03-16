@@ -31,6 +31,7 @@ const photoBuffer = createMediaGroupBuffer({
 	emoji: "📷",
 	itemLabel: "photo",
 	itemLabelPlural: "photos",
+	showStatusMessages: false,
 });
 
 /**
@@ -142,8 +143,7 @@ export async function handlePhoto(ctx: Context): Promise<void> {
 		return;
 	}
 
-	// 2. For single photos, show status and rate limit early
-	let statusMsg: Awaited<ReturnType<typeof ctx.reply>> | null = null;
+	// 2. For single photos, rate limit early
 	if (!mediaGroupId) {
 		console.log(`Received photo from @${username}`);
 		// Rate limit
@@ -155,9 +155,6 @@ export async function handlePhoto(ctx: Context): Promise<void> {
 			);
 			return;
 		}
-
-		// Show status immediately
-		statusMsg = await ctx.reply("📷 Processing image...");
 	}
 
 	// 3. Download photo
@@ -166,27 +163,12 @@ export async function handlePhoto(ctx: Context): Promise<void> {
 		photoPath = await downloadPhoto(ctx);
 	} catch (error) {
 		console.error("Failed to download photo:", error);
-		if (statusMsg) {
-			try {
-				await ctx.api.editMessageText(
-					statusMsg.chat.id,
-					statusMsg.message_id,
-					"❌ Failed to download photo.",
-				);
-			} catch (editError) {
-				console.debug("Failed to edit status message:", editError);
-				await ctx.reply("❌ Failed to download photo.", {
-					message_effect_id: effectFor(ctx, MESSAGE_EFFECTS.THUMBS_DOWN),
-				});
-			}
-		} else {
-			await ctx.reply("❌ Failed to download photo.");
-		}
+		await ctx.reply("❌ Failed to download photo.");
 		return;
 	}
 
 	// 4. Single photo - process immediately
-	if (!mediaGroupId && statusMsg) {
+	if (!mediaGroupId) {
 		await processPhotos(
 			ctx,
 			[photoPath],
@@ -195,13 +177,6 @@ export async function handlePhoto(ctx: Context): Promise<void> {
 			username,
 			chatId,
 		);
-
-		// Clean up status message
-		try {
-			await ctx.api.deleteMessage(statusMsg.chat.id, statusMsg.message_id);
-		} catch (error) {
-			console.debug("Failed to delete status message:", error);
-		}
 		return;
 	}
 
