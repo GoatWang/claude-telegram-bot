@@ -4,11 +4,12 @@
  * Supports single photos and media groups (albums) with 1s buffering.
  */
 
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { basename, join } from "node:path";
 import type { Context } from "grammy";
 import {
 	ALLOWED_USERS,
 	BOT_USERNAME,
-	MESSAGE_EFFECTS,
 	TEMP_DIR,
 } from "../config";
 import { queryQueue } from "../query-queue";
@@ -17,7 +18,6 @@ import { sessionManager } from "../session";
 import {
 	auditLog,
 	auditLogRateLimit,
-	effectFor,
 	handleUnauthorized,
 	isBotMentioned,
 	startTypingIndicator,
@@ -61,6 +61,28 @@ async function downloadPhoto(ctx: Context): Promise<string> {
 }
 
 /**
+ * Save a photo from temp dir to the session's working directory under uploads/.
+ * Returns the saved path, or the original temp path if saving fails.
+ */
+function savePhotoToWorkingDir(
+	tempPath: string,
+	workingDir: string,
+): string {
+	try {
+		const uploadsDir = join(workingDir, "uploads");
+		if (!existsSync(uploadsDir)) {
+			mkdirSync(uploadsDir, { recursive: true });
+		}
+		const savedPath = join(uploadsDir, basename(tempPath));
+		copyFileSync(tempPath, savedPath);
+		return savedPath;
+	} catch (error) {
+		console.warn("Failed to save photo to working dir:", error);
+		return tempPath;
+	}
+}
+
+/**
  * Process photos with Claude.
  */
 async function processPhotos(
@@ -74,20 +96,25 @@ async function processPhotos(
 	// Get session for this chat
 	const session = sessionManager.getSession(chatId);
 
+	// Save photos to working directory so Claude can access them persistently
+	const savedPaths = photoPaths.map((p) =>
+		savePhotoToWorkingDir(p, session.workingDir),
+	);
+
 	// Mark processing started
 	const stopProcessing = session.startProcessing();
 
-	// Build prompt
+	// Build prompt with saved paths
 	let prompt: string;
-	if (photoPaths.length === 1) {
+	if (savedPaths.length === 1) {
 		prompt = caption
-			? `[Photo: ${photoPaths[0]}]\n\n${caption}`
-			: `Please analyze this image: ${photoPaths[0]}`;
+			? `[Photo saved to: ${savedPaths[0]}]\n\n${caption}`
+			: `Please analyze this image (saved to: ${savedPaths[0]})`;
 	} else {
-		const pathsList = photoPaths.map((p, i) => `${i + 1}. ${p}`).join("\n");
+		const pathsList = savedPaths.map((p, i) => `${i + 1}. ${p}`).join("\n");
 		prompt = caption
-			? `[Photos:\n${pathsList}]\n\n${caption}`
-			: `Please analyze these ${photoPaths.length} images:\n${pathsList}`;
+			? `[Photos saved to:\n${pathsList}]\n\n${caption}`
+			: `Please analyze these ${savedPaths.length} images (saved to:\n${pathsList})`;
 	}
 
 	// Start typing

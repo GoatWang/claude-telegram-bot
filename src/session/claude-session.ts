@@ -55,7 +55,7 @@ class ClaudeSession {
 	lastBotResponse: string | null = null;
 
 	// Model and mode settings
-	currentModel: "sonnet" | "opus" | "haiku" = "sonnet";
+	currentModel: "sonnet" | "opus" | "haiku" = "opus";
 	forceThinking: number | null = null; // Tokens for next message, then resets
 	planMode = false;
 
@@ -452,7 +452,7 @@ class ClaudeSession {
 		// Determine model based on currentModel setting
 		const modelMap = {
 			sonnet: "claude-sonnet-4-5",
-			opus: "claude-opus-4-5",
+			opus: "claude-opus-4-6",
 			haiku: "claude-haiku-3-5",
 		};
 		const modelId = modelMap[this.currentModel];
@@ -499,6 +499,7 @@ class ClaudeSession {
 			additionalDirectories: ALLOWED_PATHS,
 			resume: this.sessionId || undefined,
 			enableFileCheckpointing: true, // Enable /undo support
+			extraArgs: { effort: "max" },
 		};
 
 		// Add Claude Code executable path if set (required for standalone builds)
