@@ -11,6 +11,7 @@ import {
 	ALLOWED_USERS,
 	BOT_USERNAME,
 	TEMP_DIR,
+	WORKING_DIR,
 } from "../config";
 import { queryQueue } from "../query-queue";
 import { isAuthorized, rateLimiter } from "../security";
@@ -61,24 +62,25 @@ async function downloadPhoto(ctx: Context): Promise<string> {
 }
 
 /**
- * Save a photo from temp dir to the session's working directory under uploads/.
- * Returns the saved path, or the original temp path if saving fails.
+ * Save a photo from temp dir to a stable uploads directory under the bot's
+ * main working directory. This keeps image references valid across later
+ * messages, even if the session cwd changes.
  */
-function savePhotoToWorkingDir(
+function savePhotoToPersistentDir(
 	tempPath: string,
-	workingDir: string,
-): string {
+	chatId: number,
+): { path: string; persistent: boolean } {
 	try {
-		const uploadsDir = join(workingDir, "uploads");
+		const uploadsDir = join(WORKING_DIR, "uploads", `chat-${chatId}`);
 		if (!existsSync(uploadsDir)) {
 			mkdirSync(uploadsDir, { recursive: true });
 		}
 		const savedPath = join(uploadsDir, basename(tempPath));
 		copyFileSync(tempPath, savedPath);
-		return savedPath;
+		return { path: savedPath, persistent: true };
 	} catch (error) {
-		console.warn("Failed to save photo to working dir:", error);
-		return tempPath;
+		console.warn("Failed to save photo to persistent uploads dir:", error);
+		return { path: tempPath, persistent: false };
 	}
 }
 
@@ -96,9 +98,11 @@ async function processPhotos(
 	// Get session for this chat
 	const session = sessionManager.getSession(chatId);
 
-	// Save photos to working directory so Claude can access them persistently
-	const savedPaths = photoPaths.map((p) =>
-		savePhotoToWorkingDir(p, session.workingDir),
+	// Save photos outside temp storage so later turns can still access them.
+	const savedPhotos = photoPaths.map((p) => savePhotoToPersistentDir(p, chatId));
+	const savedPaths = savedPhotos.map((photo) => photo.path);
+	const tempPathsToCleanup = photoPaths.filter(
+		(_, index) => savedPhotos[index]?.persistent,
 	);
 
 	// Mark processing started
@@ -141,8 +145,8 @@ async function processPhotos(
 	} finally {
 		stopProcessing();
 		typing.stop();
-		// Clean up temp files
-		cleanupTempFiles(photoPaths);
+		// Clean up temp files only after a persistent copy exists.
+		cleanupTempFiles(tempPathsToCleanup);
 	}
 }
 
