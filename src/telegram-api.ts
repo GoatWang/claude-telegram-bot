@@ -5,7 +5,14 @@
  */
 
 import type { RawApi, Transformer } from "grammy";
+import type { RunnerOptions } from "@grammyjs/runner";
 import { telegramRateLimiter } from "./telegram-rate-limiter";
+import {
+	TELEGRAM_POLLING_MAX_RETRY_MS,
+	TELEGRAM_POLLING_RETRY_INTERVAL_MS,
+	TELEGRAM_POLLING_TIMEOUT_SEC,
+	TELEGRAM_TOKEN,
+} from "./config";
 
 /**
  * Options for retry behavior.
@@ -260,4 +267,31 @@ export function createTelegramRetryTransformer(): Transformer<RawApi> {
 
 		throw lastError!;
 	};
+}
+
+export function createPollingRunnerOptions(): { runner: RunnerOptions } {
+	return {
+		runner: {
+			silent: true,
+			fetch: {
+				timeout: TELEGRAM_POLLING_TIMEOUT_SEC,
+			},
+			retryInterval: TELEGRAM_POLLING_RETRY_INTERVAL_MS,
+			maxRetryTime: TELEGRAM_POLLING_MAX_RETRY_MS,
+		},
+	};
+}
+
+export function sanitizeTelegramError(error: unknown): string {
+	const message = error instanceof Error ? error.message : String(error);
+	if (!message) return "unknown error";
+	const token = TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+	const redactedMessage = token
+		? message.replaceAll(token, "<redacted>")
+		: message;
+
+	return redactedMessage
+		.replace(/bot\d+:[A-Za-z0-9_-]+/g, "bot<redacted>")
+		.replace(/\s+/g, " ")
+		.trim();
 }

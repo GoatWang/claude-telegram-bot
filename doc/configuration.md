@@ -37,6 +37,14 @@ All configuration is via `.env` file (copy from `.env.example`).
 | `SHELL_COMMAND_TIMEOUT_MS` | `30000`  | Shell command timeout              |
 | `SAVE_DEBOUNCE_MS`         | `500`    | Session save debounce              |
 
+## Telegram Polling
+
+| Variable                              | Default    | Description                                   |
+| ------------------------------------- | ---------- | --------------------------------------------- |
+| `TELEGRAM_POLLING_TIMEOUT_SEC`        | `30`       | Long-poll timeout sent to `getUpdates`        |
+| `TELEGRAM_POLLING_RETRY_INTERVAL_MS`  | `1000`     | Delay between runner-level polling retries    |
+| `TELEGRAM_POLLING_MAX_RETRY_MS`       | `54000000` | Total retry window before polling exits (15h) |
+
 ## Voice & Thinking
 
 | Variable                 | Default | Description                                       |

@@ -12,6 +12,7 @@ import {
 	ALLOWED_USERS,
 	PID_LOCK_FILE,
 	RESTART_FILE,
+	TELEGRAM_POLLING_MAX_RETRY_MS,
 	TELEGRAM_TOKEN,
 	WORKING_DIR,
 	setBotUsername,
@@ -46,7 +47,11 @@ import {
 	handleWorktree,
 } from "./handlers";
 import { scanCustomCommands } from "./commands-scanner";
-import { createTelegramRetryTransformer } from "./telegram-api";
+import {
+	createPollingRunnerOptions,
+	createTelegramRetryTransformer,
+	sanitizeTelegramError,
+} from "./telegram-api";
 import { safeUnlink } from "./utils/temp-cleanup";
 import { sessionManager } from "./session";
 
@@ -261,7 +266,17 @@ if (existsSync(RESTART_FILE)) {
 }
 
 // Start with concurrent runner (commands work immediately)
-const runner = run(bot);
+const runner = run(bot, createPollingRunnerOptions());
+
+void runner.task()?.catch((error) => {
+	console.error(`Telegram polling stopped: ${sanitizeTelegramError(error)}`);
+	console.error(
+		`Polling terminated after exhausting retries (${TELEGRAM_POLLING_MAX_RETRY_MS}ms max retry window). Exiting.`,
+	);
+	sessionManager.flushAllSessions();
+	releasePidLock(PID_LOCK_FILE);
+	process.exit(1);
+});
 
 // Graceful shutdown
 const stopRunner = () => {

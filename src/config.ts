@@ -276,6 +276,23 @@ export const STREAMING_THROTTLE_MS = Number.parseInt(
 ); // Throttle streaming updates
 export const BUTTON_LABEL_MAX_LENGTH = 30; // Max chars for inline button labels
 
+// ============== Telegram Polling ==============
+
+export const TELEGRAM_POLLING_TIMEOUT_SEC = Number.parseInt(
+	process.env.TELEGRAM_POLLING_TIMEOUT_SEC || "30",
+	10,
+);
+
+export const TELEGRAM_POLLING_RETRY_INTERVAL_MS = Number.parseInt(
+	process.env.TELEGRAM_POLLING_RETRY_INTERVAL_MS || "1000",
+	10,
+);
+
+export const TELEGRAM_POLLING_MAX_RETRY_MS = Number.parseInt(
+	process.env.TELEGRAM_POLLING_MAX_RETRY_MS || `${15 * 60 * 60 * 1000}`,
+	10,
+);
+
 // ============== Token Usage Warning ==============
 
 // Warn when cumulative session tokens exceed this threshold

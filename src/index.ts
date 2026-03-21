@@ -10,6 +10,7 @@ import { Bot, InlineKeyboard } from "grammy";
 import {
 	ALLOWED_USERS,
 	RESTART_FILE,
+	TELEGRAM_POLLING_MAX_RETRY_MS,
 	TELEGRAM_TOKEN,
 	WORKING_DIR,
 	setBotUsername,
@@ -50,7 +51,11 @@ import {
 	handleWorktree,
 } from "./handlers";
 import { sessionManager } from "./session";
-import { createTelegramRetryTransformer } from "./telegram-api";
+import {
+	createPollingRunnerOptions,
+	createTelegramRetryTransformer,
+	sanitizeTelegramError,
+} from "./telegram-api";
 import { safeUnlink } from "./utils/temp-cleanup";
 
 // Create bot instance
@@ -192,7 +197,16 @@ if (existsSync(RESTART_FILE)) {
 }
 
 // Start with concurrent runner (commands work immediately)
-const runner = run(bot);
+const runner = run(bot, createPollingRunnerOptions());
+
+void runner.task()?.catch((error) => {
+	console.error(`Telegram polling stopped: ${sanitizeTelegramError(error)}`);
+	console.error(
+		`Polling terminated after exhausting retries (${TELEGRAM_POLLING_MAX_RETRY_MS}ms max retry window). Exiting.`,
+	);
+	sessionManager.flushAllSessions();
+	process.exit(1);
+});
 
 // Graceful shutdown
 const SHUTDOWN_TIMEOUT_MS = Number.parseInt(

@@ -4,8 +4,10 @@
 
 import { describe, expect, test } from "bun:test";
 import {
+	createPollingRunnerOptions,
 	createTelegramRetryTransformer,
 	isTransientTelegramError,
+	sanitizeTelegramError,
 	TelegramApiError,
 	withRetry,
 } from "../telegram-api";
@@ -133,5 +135,31 @@ describe("createTelegramRetryTransformer", () => {
 		).rejects.toThrow("401 Unauthorized");
 
 		expect(attempts).toBe(1);
+	});
+});
+
+describe("createPollingRunnerOptions", () => {
+	test("silences runner error dumps and enables long-polling retries", () => {
+		const options = createPollingRunnerOptions();
+
+		expect(options.runner.silent).toBe(true);
+		expect(options.runner.fetch?.timeout).toBe(30);
+		expect(options.runner.retryInterval).toBe(1000);
+		expect(options.runner.maxRetryTime).toBe(15 * 60 * 60 * 1000);
+	});
+});
+
+describe("sanitizeTelegramError", () => {
+	test("redacts bot tokens from runner errors", () => {
+		process.env.TELEGRAM_BOT_TOKEN = "123:secret-token";
+
+		const sanitized = sanitizeTelegramError(
+			new Error(
+				"request failed path: https://api.telegram.org/bot123:secret-token/getUpdates",
+			),
+		);
+
+		expect(sanitized).not.toContain("secret-token");
+		expect(sanitized).toContain("bot<redacted>");
 	});
 });
