@@ -84,12 +84,14 @@ class SessionManager {
 				return false;
 			}
 
-			session.sessionId = data.session_id;
-			session.lastActivity = new Date();
-
+			// Set working dir first (setWorkingDir clears sessionId)
 			if (data.working_dir) {
 				session.setWorkingDir(data.working_dir);
 			}
+
+			// Then restore sessionId after working dir is set
+			session.sessionId = data.session_id;
+			session.lastActivity = new Date();
 
 			console.log(
 				`Loaded session for chat ${chatId}: ${data.session_id.slice(0, 8)}...`,
