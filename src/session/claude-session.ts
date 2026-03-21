@@ -14,6 +14,7 @@ import {
 	MCP_SERVERS,
 	QUERY_TIMEOUT_MS,
 	SAFETY_PROMPT,
+	SESSION_DIR,
 	SESSION_FILE,
 	STREAMING_THROTTLE_MS,
 	TEMP_PATHS,
@@ -1046,12 +1047,18 @@ class ClaudeSession {
 	 */
 	resumeLast(): [success: boolean, message: string] {
 		try {
-			const file = Bun.file(SESSION_FILE);
+			// Use per-chat session file when available, fall back to legacy global file
+			const sessionFile =
+				this._chatId !== null
+					? `${SESSION_DIR}/${this._chatId}.json`
+					: SESSION_FILE;
+
+			const file = Bun.file(sessionFile);
 			if (!file.size) {
 				return [false, "No saved session found"];
 			}
 
-			const text = readFileSync(SESSION_FILE, "utf-8");
+			const text = readFileSync(sessionFile, "utf-8");
 			const data: SessionData = JSON.parse(text);
 
 			if (!data.session_id) {
