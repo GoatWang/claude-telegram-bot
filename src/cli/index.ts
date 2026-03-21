@@ -74,6 +74,11 @@ async function main(): Promise<void> {
 		process.env.CTB_CHROME = "true";
 	}
 
+	// Auto-resume previous sessions on startup
+	if (options.resume) {
+		process.env.CTB_RESUME = "true";
+	}
+
 	// Ensure .claude directory and config exist
 	ensureClaudeConfig(workingDir);
 

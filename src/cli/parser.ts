@@ -3,6 +3,7 @@ export interface CliOptions {
 	users?: string;
 	dir?: string;
 	chrome?: boolean;
+	resume?: boolean;
 	help?: boolean;
 	version?: boolean;
 	tut?: boolean;
@@ -26,6 +27,8 @@ export function parseArgs(args: string[]): CliOptions {
 			options.dir = arg.slice(6);
 		} else if (arg === "--chrome") {
 			options.chrome = true;
+		} else if (arg === "--resume") {
+			options.resume = true;
 		}
 	}
 

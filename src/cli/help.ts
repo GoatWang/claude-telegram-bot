@@ -40,6 +40,7 @@ OPTIONS:
   --users=IDS      Override TELEGRAM_ALLOWED_USERS (comma-separated)
   --dir=PATH       Override working directory (default: current directory)
   --chrome         Enable Chrome browser automation (requires Claude in Chrome extension)
+  --resume         Auto-resume previous sessions on startup
 
 ENVIRONMENT:
   Reads .env from current directory. Required variables:

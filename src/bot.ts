@@ -265,6 +265,11 @@ if (existsSync(RESTART_FILE)) {
 	}
 }
 
+// Auto-resume previous sessions if --resume flag was passed
+if (process.env.CTB_RESUME === "true") {
+	sessionManager.loadAllSessions();
+}
+
 // Start with concurrent runner (commands work immediately)
 const runner = run(bot, createPollingRunnerOptions());
 
