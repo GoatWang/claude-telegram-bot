@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, test } from "bun:test";
+import type { AgentProvider } from "../providers/types";
 import { ClaudeSession, getThinkingLevel } from "../session";
 
 describe("getThinkingLevel", () => {
@@ -357,6 +358,34 @@ describe("ClaudeSession", () => {
 			session.markInterrupt();
 			expect(session.consumeInterruptFlag()).toBe(true);
 			expect(session.consumeInterruptFlag()).toBe(false); // Consumed
+		});
+
+		test("clearStopRequested allows interrupted follow-up message to proceed", async () => {
+			const provider: AgentProvider<any, any, any> = {
+				id: "test",
+				createQuery() {
+					return (async function* () {
+						yield { type: "result" };
+					})() as any;
+				},
+			};
+			const interruptedSession = new ClaudeSession(provider);
+			const cleanup = interruptedSession.startProcessing();
+
+			interruptedSession.markInterrupt();
+			await interruptedSession.stop();
+			cleanup();
+			interruptedSession.clearStopRequested();
+
+			const result = await interruptedSession.sendMessageStreaming(
+				"follow-up",
+				"tester",
+				1,
+				async () => {},
+			);
+
+			expect(result).toBe("No response from Claude.");
+			expect(interruptedSession.consumeInterruptFlag()).toBe(true);
 		});
 	});
 

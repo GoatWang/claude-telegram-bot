@@ -19,6 +19,7 @@ const IDLE_SESSION_CLEANUP_MS = Number.parseInt(
 	process.env.IDLE_SESSION_CLEANUP_MS || String(24 * 60 * 60 * 1000), // 24 hours
 	10,
 );
+const RESUME_ENABLED = process.env.CTB_RESUME === "true";
 
 /**
  * SessionManager manages multiple ClaudeSession instances (one per chat).
@@ -47,8 +48,10 @@ class SessionManager {
 		if (!this.sessions.has(chatId)) {
 			const session = new ClaudeSession();
 
-			// Try to load from disk
-			const loaded = this.loadSessionFromDisk(chatId, session);
+			// Restore persisted sessions only when --resume explicitly enabled.
+			const loaded = RESUME_ENABLED
+				? this.loadSessionFromDisk(chatId, session)
+				: false;
 
 			if (!loaded) {
 				// New session: use global default working dir
@@ -131,6 +134,8 @@ class SessionManager {
 	 * Load all sessions from disk on startup.
 	 */
 	loadAllSessions(): void {
+		if (!RESUME_ENABLED) return;
+
 		try {
 			if (!existsSync(SESSION_DIR)) return;
 

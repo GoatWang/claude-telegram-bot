@@ -74,6 +74,7 @@ export async function handleText(ctx: Context): Promise<void> {
 	const username = ctx.from?.username || "unknown";
 	const chatId = ctx.chat?.id;
 	let message = ctx.message?.text;
+	let interruptedRunningQuery = false;
 
 	if (!userId || !message || !chatId) {
 		return;
@@ -168,9 +169,11 @@ export async function handleText(ctx: Context): Promise<void> {
 			// Stop current query if running
 			if (session.isRunning) {
 				console.log("!! prefix - interrupting current query");
+				interruptedRunningQuery = true;
 				session.markInterrupt();
 				await session.stop();
 				await Bun.sleep(100); // Small delay for clean interruption
+				session.clearStopRequested();
 			}
 			// Continue with the message (will be sent to Claude below)
 			message = interruptMsg;
@@ -222,6 +225,13 @@ export async function handleText(ctx: Context): Promise<void> {
 	}
 
 	// 4. If session is busy, queue the message instead of executing
+	if (interruptedRunningQuery) {
+		const deadline = Date.now() + 3000;
+		while (session.isRunning && Date.now() < deadline) {
+			await Bun.sleep(50);
+		}
+	}
+
 	if (session.isRunning) {
 		const msgId = session.addPendingMessage(message);
 		const preview =
