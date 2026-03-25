@@ -94,6 +94,10 @@ Worktrees are stored in `.worktrees/` inside the project (not a sibling director
 
 **Skills**: Create in `.claude/skills/skill-name.md` (project-local, not global `~/.claude/skills/`).
 
+## prompts/ Naming
+
+Format: `YYYYMMDD_N_description.md` where `N` is sequential for the day.
+
 ## Commit Style
 
 Do not add "Generated with Claude Code" footers or "Co-Authored-By" trailers.
