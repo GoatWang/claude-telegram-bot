@@ -1,7 +1,13 @@
 import { resolve } from "node:path";
 import { parseArgs } from "./parser";
 import { showHelp, showTutorial, VERSION } from "./help";
-import { loadEnvFile } from "./env";
+import {
+	DEFAULT_ENV_FILE,
+	ensureClaudeCodePath,
+	loadEnvFile,
+	resolveEnvFilePath,
+	resolveInstanceKey,
+} from "./env";
 import { interactiveSetup, ensureClaudeConfig } from "./setup";
 
 // Re-export everything from submodules for convenience
@@ -31,11 +37,13 @@ async function main(): Promise<void> {
 
 	// Determine working directory
 	const workingDir = options.dir ? resolve(options.dir) : process.cwd();
+	const envName = options.env || DEFAULT_ENV_FILE;
+	const envPath = resolveEnvFilePath(workingDir, envName);
 
-	// Load .env from working directory
-	const envFile = loadEnvFile(workingDir);
+	// Load env file from working directory
+	const envFile = loadEnvFile(workingDir, envName);
 
-	// Merge: CLI args > .env file > process.env
+	// Merge required vars as: CLI args > selected env file > process.env
 	let token =
 		options.token ||
 		envFile.TELEGRAM_BOT_TOKEN ||
@@ -49,7 +57,7 @@ async function main(): Promise<void> {
 
 	// Interactive setup if missing required vars
 	if (!token || !users) {
-		const setup = await interactiveSetup(workingDir, envFile);
+		const setup = await interactiveSetup(workingDir, envFile, envName);
 		token = token || setup.token;
 		users = users || setup.users;
 	}
@@ -59,15 +67,18 @@ async function main(): Promise<void> {
 	process.env.TELEGRAM_ALLOWED_USERS = users;
 	process.env.CLAUDE_WORKING_DIR = workingDir;
 
-	// Pass through other env vars from .env file
+	// Pass through other env vars from the selected env file
 	for (const [key, value] of Object.entries(envFile)) {
 		if (!(key in process.env)) {
 			process.env[key] = value;
 		}
 	}
+	ensureClaudeCodePath(process.env);
 
 	// Set CTB_INSTANCE_DIR for session isolation
 	process.env.CTB_INSTANCE_DIR = workingDir;
+	process.env.CTB_INSTANCE_KEY = resolveInstanceKey(workingDir, envName);
+	process.env.CTB_ENV_FILE = envPath;
 
 	// Enable Chrome browser automation if --chrome flag is set
 	if (options.chrome) {
@@ -82,7 +93,7 @@ async function main(): Promise<void> {
 	// Ensure .claude directory and config exist
 	ensureClaudeConfig(workingDir);
 
-	console.log(`\nStarting ctb in ${workingDir}...\n`);
+	console.log(`\nStarting ctb in ${workingDir} with ${envPath}...\n`);
 
 	// Import and start the bot
 	await import("../bot.js");

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
-import { saveEnvFile } from "./env";
+import { DEFAULT_ENV_FILE, resolveEnvFilePath, saveEnvFile } from "./env";
 
 export async function prompt(question: string): Promise<string> {
 	const rl = createInterface({
@@ -20,8 +20,12 @@ export async function prompt(question: string): Promise<string> {
 export async function interactiveSetup(
 	dir: string,
 	existingEnv: Record<string, string>,
+	envFile = DEFAULT_ENV_FILE,
 ): Promise<{ token: string; users: string }> {
-	console.log(`\nNo .env found or missing required variables in ${dir}\n`);
+	const envPath = resolveEnvFilePath(dir, envFile);
+	console.log(
+		`\nNo ${envPath} found or required variables are missing for ${dir}\n`,
+	);
 
 	let token = existingEnv.TELEGRAM_BOT_TOKEN || "";
 	let users = existingEnv.TELEGRAM_ALLOWED_USERS || "";
@@ -47,14 +51,14 @@ export async function interactiveSetup(
 	}
 
 	// Ask to save
-	const save = await prompt("\nSave to .env? (Y/n): ");
+	const save = await prompt(`\nSave to ${envPath}? (Y/n): `);
 	if (save.toLowerCase() !== "n") {
 		saveEnvFile(dir, {
 			...existingEnv,
 			TELEGRAM_BOT_TOKEN: token,
 			TELEGRAM_ALLOWED_USERS: users,
-		});
-		console.log(`Saved to ${resolve(dir, ".env")}\n`);
+		}, envFile);
+		console.log(`Saved to ${envPath}\n`);
 	}
 
 	return { token, users };

@@ -13,7 +13,7 @@ import {
 import { SESSION_DIR, WORKING_DIR } from "../config";
 import type { SessionData } from "../types";
 import { ClaudeSession } from "./claude-session";
-import { SESSION_VERSION } from "./types";
+import { getResumeBlockedReason, SESSION_VERSION } from "./types";
 
 const IDLE_SESSION_CLEANUP_MS = Number.parseInt(
 	process.env.IDLE_SESSION_CLEANUP_MS || String(24 * 60 * 60 * 1000), // 24 hours
@@ -87,6 +87,16 @@ class SessionManager {
 				return false;
 			}
 
+			const resumeBlockedReason = getResumeBlockedReason(
+				data,
+				WORKING_DIR,
+				"start folder",
+			);
+			if (resumeBlockedReason) {
+				console.warn(`Skipping resume for chat ${chatId}: ${resumeBlockedReason}`);
+				return false;
+			}
+
 			// Set working dir first (setWorkingDir clears sessionId)
 			if (data.working_dir) {
 				session.setWorkingDir(data.working_dir);
@@ -121,6 +131,7 @@ class SessionManager {
 				session_id: session.sessionId,
 				saved_at: new Date().toISOString(),
 				working_dir: session.workingDir,
+				start_dir: WORKING_DIR,
 			};
 
 			writeFileSync(sessionFile, JSON.stringify(data), { mode: 0o600 });

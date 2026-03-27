@@ -3,6 +3,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { getRestartCommand } from "../handlers/commands/restart";
 
 describe("/restart command", () => {
 	let originalArgv: string[];
@@ -76,44 +77,35 @@ describe("/restart command", () => {
 		test("generates binary restart command", () => {
 			process.argv[0] = "/usr/local/bin/ctb";
 			process.argv[1] = "/usr/local/bin/ctb";
-			const botScript = process.argv[1] || "";
-			const isBinary = !botScript.endsWith(".ts") && !botScript.endsWith(".js");
+			const { restartCommand } = getRestartCommand(process.argv);
 
-			let restartCommand = "";
-			if (isBinary) {
-				restartCommand = process.argv[0] || "";
-			}
-
-			expect(restartCommand).toBe("/usr/local/bin/ctb");
+			expect(restartCommand).toBe("'/usr/local/bin/ctb'");
 		});
 
 		test("generates CLI restart command", () => {
 			process.argv[1] = "/path/to/cli.ts";
-			const botScript = process.argv[1] || "";
-			const isCliMode =
-				botScript.includes("cli.ts") || botScript.includes("cli.js");
+			const { restartCommand } = getRestartCommand(process.argv);
 
-			let restartCommand = "";
-			if (isCliMode) {
-				restartCommand = `bun "${botScript}"`;
-			}
-
-			expect(restartCommand).toBe('bun "/path/to/cli.ts"');
+			expect(restartCommand).toBe("bun '/path/to/cli.ts'");
 		});
 
 		test("generates development restart command", () => {
 			process.argv[1] = "/path/to/src/index.ts";
-			const botScript = process.argv[1] || "";
-			const isCliMode =
-				botScript.includes("cli.ts") || botScript.includes("cli.js");
-			const isBinary = !botScript.endsWith(".ts") && !botScript.endsWith(".js");
+			const { restartCommand } = getRestartCommand(process.argv);
 
-			let restartCommand = "";
-			if (!isBinary && !isCliMode) {
-				restartCommand = `bun run "${botScript}"`;
-			}
+			expect(restartCommand).toBe("bun run '/path/to/src/index.ts'");
+		});
 
-			expect(restartCommand).toBe('bun run "/path/to/src/index.ts"');
+		test("preserves CLI args such as --env on restart", () => {
+			process.argv[1] = "/path/to/cli.ts";
+			process.argv[2] = "--env=.env2";
+			process.argv[3] = "--resume";
+
+			const { restartCommand } = getRestartCommand(process.argv);
+
+			expect(restartCommand).toBe(
+				"bun '/path/to/cli.ts' '--env=.env2' '--resume'",
+			);
 		});
 	});
 

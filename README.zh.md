@@ -53,7 +53,7 @@ cd ~/my-project
 ctb
 ```
 
-首次執行時，`ctb` 會提示輸入 Telegram Bot Token 與允許的使用者 ID，並可選擇寫入 `.env`。
+首次執行時，`ctb` 會提示輸入 Telegram Bot Token 與允許的使用者 ID，並可選擇寫入 `.env` 或 `--env=...` 指定的檔案。Resume 狀態會依工作目錄與選定的 env 檔案分開保存。
 
 ### 從原始碼安裝
 
@@ -77,6 +77,8 @@ TELEGRAM_ALLOWED_USERS=123456789
 
 # 選填
 CLAUDE_WORKING_DIR=/path/to/your/folder    # 備用工作目錄
+CLAUDE_CODE_PATH=~/.local/bin/claude       # ctb 預設使用的 Claude Code 路徑
+FIRST_PROMPT=Always answer in Traditional Chinese.  # 每次新 session 的起始提示
 OPENAI_API_KEY=sk-...                      # 語音轉文字
 ```
 

@@ -34,6 +34,7 @@ export interface SessionData {
 	session_id: string;
 	saved_at: string;
 	working_dir: string;
+	start_dir?: string;
 }
 
 // Token usage from Claude

@@ -13,7 +13,13 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "../cli/parser";
-import { loadEnvFile, saveEnvFile } from "../cli/env";
+import {
+	DEFAULT_CLAUDE_CODE_PATH,
+	ensureClaudeCodePath,
+	loadEnvFile,
+	resolveInstanceKey,
+	saveEnvFile,
+} from "../cli/env";
 
 // ============== parseArgs Tests ==============
 
@@ -66,6 +72,11 @@ describe("parseArgs", () => {
 		test("parses --dir option", () => {
 			const result = parseArgs(["--dir=/path/to/project"]);
 			expect(result.dir).toBe("/path/to/project");
+		});
+
+		test("parses --env option", () => {
+			const result = parseArgs(["--env=.env2"]);
+			expect(result.env).toBe(".env2");
 		});
 
 		test("handles token with special characters", () => {
@@ -121,6 +132,11 @@ describe("parseArgs", () => {
 		test("handles empty dir value", () => {
 			const result = parseArgs(["--dir="]);
 			expect(result.dir).toBe("");
+		});
+
+		test("handles empty env value", () => {
+			const result = parseArgs(["--env="]);
+			expect(result.env).toBe("");
 		});
 
 		test("handles duplicate flags", () => {
@@ -227,6 +243,14 @@ describe("loadEnvFile", () => {
 		expect(env).toEqual({});
 	});
 
+	test("loads a custom env filename", () => {
+		writeFileSync(join(testDir, ".env2"), "KEY=value2\n");
+
+		const env = loadEnvFile(testDir, ".env2");
+		expect(env.KEY).toBe("value2");
+		unlinkSync(join(testDir, ".env2"));
+	});
+
 	test("returns empty object for empty file", () => {
 		writeFileSync(join(testDir, ".env"), "");
 
@@ -257,6 +281,30 @@ describe("loadEnvFile", () => {
 		// Value starts with " but doesn't end with " -> keeps quotes
 		expect(env.KEY).toBe('"partial');
 		expect(env.KEY2).toBe("'no end");
+	});
+});
+
+// ============== resolveInstanceKey Tests ==============
+
+describe("resolveInstanceKey", () => {
+	test("uses the working directory for the default .env", () => {
+		expect(resolveInstanceKey("/tmp/project")).toBe("/tmp/project");
+		expect(resolveInstanceKey("/tmp/project", ".env")).toBe("/tmp/project");
+	});
+
+	test("isolates custom env files in the same working directory", () => {
+		const env1Key = resolveInstanceKey("/tmp/project", ".env1");
+		const env2Key = resolveInstanceKey("/tmp/project", ".env2");
+
+		expect(env1Key).toBe("/tmp/project::/tmp/project/.env1");
+		expect(env2Key).toBe("/tmp/project::/tmp/project/.env2");
+		expect(env1Key).not.toBe(env2Key);
+	});
+
+	test("supports absolute env file paths", () => {
+		expect(resolveInstanceKey("/tmp/project", "/tmp/shared/.env2")).toBe(
+			"/tmp/project::/tmp/shared/.env2",
+		);
 	});
 });
 
@@ -348,6 +396,14 @@ describe("saveEnvFile", () => {
 		expect(content.endsWith("\n")).toBe(true);
 	});
 
+	test("writes to a custom env filename", () => {
+		saveEnvFile(testDir, { KEY: "value" }, ".env2");
+
+		const content = readFileSync(join(testDir, ".env2"), "utf-8");
+		expect(content).toContain("KEY=value");
+		unlinkSync(join(testDir, ".env2"));
+	});
+
 	test("roundtrips with loadEnvFile", () => {
 		const original = {
 			TOKEN: "abc123",
@@ -361,5 +417,42 @@ describe("saveEnvFile", () => {
 		expect(loaded.TOKEN).toBe("abc123");
 		expect(loaded.USERS).toBe("1,2,3");
 		expect(loaded.DIR).toBe("/home/user");
+	});
+});
+
+describe("ensureClaudeCodePath", () => {
+	test("sets the default Claude Code path when nothing is configured", () => {
+		const env: NodeJS.ProcessEnv = {};
+
+		ensureClaudeCodePath(env);
+
+		expect(env.CLAUDE_CODE_PATH).toEndWith("/.local/bin/claude");
+		expect(env.CLAUDE_CLI_PATH).toBe(env.CLAUDE_CODE_PATH);
+	});
+
+	test("uses legacy CLAUDE_CLI_PATH when provided", () => {
+		const env: NodeJS.ProcessEnv = {
+			CLAUDE_CLI_PATH: "/custom/claude",
+		};
+
+		ensureClaudeCodePath(env);
+
+		expect(env.CLAUDE_CODE_PATH).toBe("/custom/claude");
+		expect(env.CLAUDE_CLI_PATH).toBe("/custom/claude");
+	});
+
+	test("keeps an explicit CLAUDE_CODE_PATH", () => {
+		const env: NodeJS.ProcessEnv = {
+			CLAUDE_CODE_PATH: "/already/set/claude",
+		};
+
+		ensureClaudeCodePath(env);
+
+		expect(env.CLAUDE_CODE_PATH).toBe("/already/set/claude");
+		expect(env.CLAUDE_CLI_PATH).toBe("/already/set/claude");
+	});
+
+	test("documents the raw default path value", () => {
+		expect(DEFAULT_CLAUDE_CODE_PATH).toBe("~/.local/bin/claude");
 	});
 });

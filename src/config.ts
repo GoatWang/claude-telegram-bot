@@ -12,6 +12,10 @@ import type { McpServerConfig } from "./types";
 
 const HOME = homedir();
 
+function expandHomePath(pathValue: string): string {
+	return pathValue.replace(/^~(?=\/|$)/, HOME);
+}
+
 // Ensure necessary paths are available for Claude's bash commands
 // LaunchAgents don't inherit the full shell environment
 const EXTRA_PATHS = [
@@ -69,18 +73,20 @@ if (!AGENT_PROVIDERS.includes(agentProviderEnv as AgentProviderId)) {
 
 // Auto-detect from PATH, or use environment override
 function findClaudeCli(): string {
-	const envPath = process.env.CLAUDE_CLI_PATH;
-	if (envPath) return envPath;
+	const envPath = process.env.CLAUDE_CODE_PATH || process.env.CLAUDE_CLI_PATH;
+	if (envPath) return expandHomePath(envPath);
 
 	// Try to find claude in PATH using Bun.which
 	const whichResult = Bun.which("claude");
 	if (whichResult) return whichResult;
 
 	// Final fallback
-	return "/usr/local/bin/claude";
+	return `${HOME}/.local/bin/claude`;
 }
 
 export const CLAUDE_CLI_PATH = findClaudeCli();
+process.env.CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || CLAUDE_CLI_PATH;
+process.env.CLAUDE_CLI_PATH = process.env.CLAUDE_CLI_PATH || CLAUDE_CLI_PATH;
 
 // ============== MCP Configuration ==============
 
@@ -378,9 +384,12 @@ function hashDir(dir: string): string {
 	return Math.abs(hash).toString(36).slice(0, 8);
 }
 
-// Instance directory for session isolation (set by CLI or defaults to working dir)
-const INSTANCE_DIR = process.env.CTB_INSTANCE_DIR || WORKING_DIR;
-const INSTANCE_HASH = hashDir(INSTANCE_DIR);
+// Instance storage key for session/restart isolation.
+// CLI mode keeps CTB_INSTANCE_DIR as the real project directory and can provide
+// CTB_INSTANCE_KEY to further split state by the selected env file.
+const INSTANCE_KEY =
+	process.env.CTB_INSTANCE_KEY || process.env.CTB_INSTANCE_DIR || WORKING_DIR;
+const INSTANCE_HASH = hashDir(INSTANCE_KEY);
 const INSTANCE_TEMP_DIR = `/tmp/ctb-${INSTANCE_HASH}`;
 
 export const SESSION_FILE = `${INSTANCE_TEMP_DIR}/session.json`;

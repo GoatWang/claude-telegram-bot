@@ -1,6 +1,6 @@
 # Configuration Reference
 
-All configuration is via `.env` file (copy from `.env.example`).
+All configuration is via an env file. By default `ctb` reads `.env`; use `ctb --env=.env2` to choose a different file. Saved sessions and restart state are isolated by working directory plus the selected env file.
 
 ## Required
 
@@ -14,6 +14,8 @@ All configuration is via `.env` file (copy from `.env.example`).
 | Variable             | Default | Description                      |
 | -------------------- | ------- | -------------------------------- |
 | `CLAUDE_WORKING_DIR` | `.`     | Working directory for Claude     |
+| `CLAUDE_CODE_PATH`   | `~/.local/bin/claude` | Claude Code executable path used by `ctb` |
+| `FIRST_PROMPT`       |         | Prompt injected into the first request of each new session |
 | `OPENAI_API_KEY`     |         | Required for voice transcription |
 | `ANTHROPIC_API_KEY`  |         | If no Claude CLI auth configured |
 

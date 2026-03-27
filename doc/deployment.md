@@ -20,7 +20,7 @@ ctb /path/to/project
 CLAUDE_WORKING_DIR=/path/to/project bun run start
 ```
 
-Each unique working directory gets isolated temp files via `INSTANCE_HASH`.
+Each unique working directory gets isolated temp files via `INSTANCE_HASH`. When launched through `ctb`, the selected env file is also included in that isolation key, so `--env=.env1` and `--env=.env2` do not share resume state.
 
 ## Standalone Binary
 

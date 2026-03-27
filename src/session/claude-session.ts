@@ -3,6 +3,7 @@
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import type { Context } from "grammy";
 import { resolvePath } from "../bookmarks";
 import {
@@ -32,13 +33,53 @@ import {
 import type { AgentProvider } from "../providers/types";
 import { checkCommandSafety, isPathAllowed } from "../security";
 import type { SessionData, StatusCallback, TokenUsage } from "../types";
-import { SESSION_VERSION } from "./types";
+import { getResumeBlockedReason, SESSION_VERSION } from "./types";
 import { createProvider, getThinkingLevel, resolveProvider } from "./thinking";
 
+const HOME = homedir();
 const PENDING_WORKTREE_TIMEOUT_MS = Number.parseInt(
 	process.env.PENDING_WORKTREE_TIMEOUT_MS || String(10 * 60 * 1000),
 	10,
 );
+
+function expandHomePath(pathValue: string): string {
+	return pathValue.replace(/^~(?=\/|$)/, HOME);
+}
+
+function buildNewSessionPrompt(
+	message: string,
+	firstPrompt: string,
+	handoff: string | null,
+): string {
+	const now = new Date();
+	const sections = [
+		`[Current date/time: ${now.toLocaleDateString("en-US", {
+			weekday: "long",
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			timeZoneName: "short",
+		})}]`,
+	];
+
+	if (firstPrompt) {
+		sections.push(`[First prompt]\n${firstPrompt}`);
+	}
+
+	if (handoff) {
+		sections.push(`[Previous session summary]\n${handoff}`);
+	}
+
+	if (firstPrompt || handoff) {
+		sections.push(`[New request]\n${message}`);
+	} else {
+		sections.push(message);
+	}
+
+	return `${sections.join("\n\n")}\n`;
+}
 
 /**
  * Manages Claude Code sessions using the Agent SDK V1.
@@ -464,27 +505,9 @@ class ClaudeSession {
 		// Inject current date/time at session start so Claude doesn't need to call a tool for it
 		let messageToSend = message;
 		if (isNewSession) {
-			const now = new Date();
-			const datePrefix = `[Current date/time: ${now.toLocaleDateString(
-				"en-US",
-				{
-					weekday: "long",
-					year: "numeric",
-					month: "long",
-					day: "numeric",
-					hour: "2-digit",
-					minute: "2-digit",
-					timeZoneName: "short",
-				},
-			)}]\n\n`;
-
-			// Check for handoff context from previous session
+			const firstPrompt = (process.env.FIRST_PROMPT || "").trim();
 			const handoff = this.consumeHandoffContext();
-			if (handoff) {
-				messageToSend = `${datePrefix}[Previous session summary]\n${handoff}\n\n[New request]\n${message}`;
-			} else {
-				messageToSend = datePrefix + message;
-			}
+			messageToSend = buildNewSessionPrompt(message, firstPrompt, handoff);
 		}
 
 		// Build SDK V1 options - supports all features
@@ -504,8 +527,10 @@ class ClaudeSession {
 		};
 
 		// Add Claude Code executable path if set (required for standalone builds)
-		if (process.env.CLAUDE_CODE_PATH) {
-			options.pathToClaudeCodeExecutable = process.env.CLAUDE_CODE_PATH;
+		const claudeCodePath =
+			process.env.CLAUDE_CODE_PATH || process.env.CLAUDE_CLI_PATH;
+		if (claudeCodePath) {
+			options.pathToClaudeCodeExecutable = expandHomePath(claudeCodePath);
 		}
 
 		// Enable Chrome browser automation via --chrome CLI flag
@@ -1017,6 +1042,7 @@ class ClaudeSession {
 				session_id: this.sessionId,
 				saved_at: new Date().toISOString(),
 				working_dir: this._workingDir,
+				start_dir: WORKING_DIR,
 			};
 			// Use mode 0o600 for owner read/write only (security)
 			writeFileSync(SESSION_FILE, JSON.stringify(data), { mode: 0o600 });
@@ -1072,11 +1098,13 @@ class ClaudeSession {
 				];
 			}
 
-			if (data.working_dir && data.working_dir !== this._workingDir) {
-				return [
-					false,
-					`Session was for different directory: ${data.working_dir}`,
-				];
+			const resumeBlockedReason = getResumeBlockedReason(
+				data,
+				this._workingDir,
+				"current folder",
+			);
+			if (resumeBlockedReason) {
+				return [false, resumeBlockedReason];
 			}
 
 			this.sessionId = data.session_id;

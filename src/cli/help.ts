@@ -36,23 +36,28 @@ USAGE:
 OPTIONS:
   --help, -h       Show this help message
   --version, -v    Show version
-  --token=TOKEN    Override TELEGRAM_BOT_TOKEN from .env
+  --token=TOKEN    Override TELEGRAM_BOT_TOKEN from the env file
   --users=IDS      Override TELEGRAM_ALLOWED_USERS (comma-separated)
   --dir=PATH       Override working directory (default: current directory)
+  --env=FILE       Load a different env file (default: .env)
   --chrome         Enable Chrome browser automation (requires Claude in Chrome extension)
   --resume         Auto-resume previous sessions on startup
 
 ENVIRONMENT:
-  Reads .env from current directory. Required variables:
+  Reads the selected env file from the working directory. Required variables:
     TELEGRAM_BOT_TOKEN      - Bot token from @BotFather
     TELEGRAM_ALLOWED_USERS  - Comma-separated Telegram user IDs
+    CLAUDE_CODE_PATH        - Optional, defaults to ~/.local/bin/claude in ctb
+    FIRST_PROMPT            - Optional, injected into the first request of each new session
 
 EXAMPLES:
   cd ~/my-project && ctb           # Start bot for this project
+  ctb --env=.env2                 # Start with a different env file
   ctb --dir=/path/to/project       # Start bot for specific directory
   ctb --token=xxx --users=123,456  # Override env vars
 
 Multiple instances can run simultaneously in different directories.
+When using ctb, saved sessions/restart state are isolated by working directory + selected env file.
 `);
 }
 
@@ -95,14 +100,17 @@ Option A: Interactive setup (easiest)
   Just run: ctb
   It will prompt you for the token and user IDs.
 
-Option B: Create a .env file
+Option B: Create an env file
   Create a file named .env in your project directory:
 
   TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
   TELEGRAM_ALLOWED_USERS=123456789,987654321
+  CLAUDE_CODE_PATH=~/.local/bin/claude
+  FIRST_PROMPT=Always answer in Traditional Chinese.
 
 Option C: Use command-line arguments
   ctb --token=YOUR_TOKEN --users=YOUR_USER_ID
+  ctb --env=.env2
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STEP 4: Set Up Bot Commands (Optional)

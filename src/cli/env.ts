@@ -1,8 +1,59 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 
-export function loadEnvFile(dir: string): Record<string, string> {
-	const envPath = resolve(dir, ".env");
+export const DEFAULT_ENV_FILE = ".env";
+export const DEFAULT_CLAUDE_CODE_PATH = "~/.local/bin/claude";
+
+const HOME = homedir();
+
+export function resolveEnvFilePath(
+	dir: string,
+	envFile = DEFAULT_ENV_FILE,
+): string {
+	return resolve(dir, envFile || DEFAULT_ENV_FILE);
+}
+
+export function resolveInstanceKey(
+	dir: string,
+	envFile = DEFAULT_ENV_FILE,
+): string {
+	const workingDir = resolve(dir);
+	const envPath = resolveEnvFilePath(workingDir, envFile);
+	const defaultEnvPath = resolveEnvFilePath(workingDir, DEFAULT_ENV_FILE);
+
+	// Preserve legacy storage paths for the default .env, while isolating
+	// custom env files such as .env1/.env2 in the same working directory.
+	if (envPath === defaultEnvPath) {
+		return workingDir;
+	}
+
+	return `${workingDir}::${envPath}`;
+}
+
+export function expandHomePath(pathValue: string): string {
+	return pathValue.replace(/^~(?=\/|$)/, HOME);
+}
+
+export function ensureClaudeCodePath(env: NodeJS.ProcessEnv): void {
+	const configuredPath =
+		env.CLAUDE_CODE_PATH ||
+		env.CLAUDE_CLI_PATH ||
+		DEFAULT_CLAUDE_CODE_PATH;
+	const normalizedPath = expandHomePath(configuredPath);
+
+	env.CLAUDE_CODE_PATH = normalizedPath;
+
+	if (!env.CLAUDE_CLI_PATH) {
+		env.CLAUDE_CLI_PATH = normalizedPath;
+	}
+}
+
+export function loadEnvFile(
+	dir: string,
+	envFile = DEFAULT_ENV_FILE,
+): Record<string, string> {
+	const envPath = resolveEnvFilePath(dir, envFile);
 	const env: Record<string, string> = {};
 
 	if (!existsSync(envPath)) {
@@ -34,8 +85,12 @@ export function loadEnvFile(dir: string): Record<string, string> {
 	return env;
 }
 
-export function saveEnvFile(dir: string, env: Record<string, string>): void {
-	const envPath = resolve(dir, ".env");
+export function saveEnvFile(
+	dir: string,
+	env: Record<string, string>,
+	envFile = DEFAULT_ENV_FILE,
+): void {
+	const envPath = resolveEnvFilePath(dir, envFile);
 	const lines: string[] = [];
 
 	// Preserve existing content

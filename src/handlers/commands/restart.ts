@@ -10,6 +10,35 @@ import { RESTART_FILE } from "../../config";
 import { sessionManager } from "../../session";
 import { checkCommandAuth } from "./utils";
 
+function shellQuote(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+export function getRestartCommand(
+	argv: string[] = process.argv,
+): { restartCommand: string; logFile: string } {
+	const botScript = argv[1] || "";
+	const isCliMode =
+		botScript.includes("cli.ts") || botScript.includes("cli.js");
+	const isBinary = !botScript.endsWith(".ts") && !botScript.endsWith(".js");
+	const extraArgs = argv.slice(2).map(shellQuote);
+
+	let commandParts: string[];
+
+	if (isBinary) {
+		commandParts = [shellQuote(argv[0] || ""), ...extraArgs];
+	} else if (isCliMode) {
+		commandParts = ["bun", shellQuote(botScript), ...extraArgs];
+	} else {
+		commandParts = ["bun", "run", shellQuote(botScript), ...extraArgs];
+	}
+
+	return {
+		restartCommand: commandParts.join(" "),
+		logFile: "/tmp/claude-telegram-bot.log",
+	};
+}
+
 /**
  * Execute the restart process.
  */
@@ -17,28 +46,7 @@ export async function executeRestart(
 	ctx: Context,
 	chatId: number | undefined,
 ): Promise<void> {
-	// Determine restart command based on how bot was started
-	const botScript = process.argv[1] || "";
-	const isCliMode =
-		botScript.includes("cli.ts") || botScript.includes("cli.js");
-	const isBinary = !botScript.endsWith(".ts") && !botScript.endsWith(".js");
-
-	let restartCommand: string;
-	let logFile: string;
-
-	if (isBinary) {
-		// Standalone binary mode
-		restartCommand = process.argv[0] || "";
-		logFile = "/tmp/claude-telegram-bot.log";
-	} else if (isCliMode) {
-		// CLI mode (ctb)
-		restartCommand = `bun "${botScript}"`;
-		logFile = "/tmp/claude-telegram-bot.log";
-	} else {
-		// Development mode (bun run src/index.ts or src/bot.ts)
-		restartCommand = `bun run "${botScript}"`;
-		logFile = "/tmp/claude-telegram-bot.log";
-	}
+	const { restartCommand, logFile } = getRestartCommand();
 
 	const msg = await ctx.reply("\u{1F504} Restarting bot...");
 
@@ -94,27 +102,7 @@ export async function handleRestart(ctx: Context): Promise<void> {
 	const isTTY = process.stdout.isTTY;
 
 	// Determine restart command based on how bot was started
-	const botScript = process.argv[1] || "";
-	const isCliMode =
-		botScript.includes("cli.ts") || botScript.includes("cli.js");
-	const isBinary = !botScript.endsWith(".ts") && !botScript.endsWith(".js");
-
-	let restartCommand: string;
-	let logFile: string;
-
-	if (isBinary) {
-		// Standalone binary mode
-		restartCommand = process.argv[0] || "";
-		logFile = "/tmp/claude-telegram-bot.log";
-	} else if (isCliMode) {
-		// CLI mode (ctb)
-		restartCommand = `bun "${botScript}"`;
-		logFile = "/tmp/claude-telegram-bot.log";
-	} else {
-		// Development mode (bun run src/index.ts or src/bot.ts)
-		restartCommand = `bun run "${botScript}"`;
-		logFile = "/tmp/claude-telegram-bot.log";
-	}
+	const { restartCommand, logFile } = getRestartCommand();
 
 	// Warn if running in terminal
 	if (isTTY) {
