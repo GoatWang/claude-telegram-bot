@@ -1,6 +1,8 @@
 # Configuration Reference
 
-All configuration is via an env file. By default `ctb` reads `.env`; use `ctb --env=.env2` to choose a different file. Saved sessions and restart state are isolated by working directory plus the selected env file.
+All configuration is via an env file. By default `ctb` reads `.env`; use `ctb --env=.env2` or set `CTB_ENV` to choose a different file. `--env` takes precedence over `CTB_ENV`. Saved sessions and restart state are isolated by working directory plus the selected env file.
+
+At startup, `ctb` resolves the env file to an absolute path and exports it as both `CTB_ENV` and `CTB_ENV_FILE`, which lets child processes inspect the active env file directly.
 
 ## Required
 

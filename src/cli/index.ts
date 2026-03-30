@@ -5,8 +5,8 @@ import {
 	DEFAULT_ENV_FILE,
 	ensureClaudeCodePath,
 	loadEnvFile,
-	resolveEnvFilePath,
 	resolveInstanceKey,
+	resolveSelectedEnvFile,
 } from "./env";
 import { interactiveSetup, ensureClaudeConfig } from "./setup";
 
@@ -37,8 +37,11 @@ async function main(): Promise<void> {
 
 	// Determine working directory
 	const workingDir = options.dir ? resolve(options.dir) : process.cwd();
-	const envName = options.env || DEFAULT_ENV_FILE;
-	const envPath = resolveEnvFilePath(workingDir, envName);
+	const { envName, envPath } = resolveSelectedEnvFile(
+		workingDir,
+		options.env,
+		process.env,
+	);
 
 	// Load env file from working directory
 	const envFile = loadEnvFile(workingDir, envName);
@@ -78,6 +81,7 @@ async function main(): Promise<void> {
 	// Set CTB_INSTANCE_DIR for session isolation
 	process.env.CTB_INSTANCE_DIR = workingDir;
 	process.env.CTB_INSTANCE_KEY = resolveInstanceKey(workingDir, envName);
+	process.env.CTB_ENV = envPath;
 	process.env.CTB_ENV_FILE = envPath;
 
 	// Enable Chrome browser automation if --chrome flag is set

@@ -18,6 +18,7 @@ import {
 	ensureClaudeCodePath,
 	loadEnvFile,
 	resolveInstanceKey,
+	resolveSelectedEnvFile,
 	saveEnvFile,
 } from "../cli/env";
 
@@ -285,6 +286,37 @@ describe("loadEnvFile", () => {
 });
 
 // ============== resolveInstanceKey Tests ==============
+
+describe("resolveSelectedEnvFile", () => {
+	test("uses the default .env when nothing is specified", () => {
+		expect(resolveSelectedEnvFile("/tmp/project", undefined, {})).toEqual({
+			envName: ".env",
+			envPath: "/tmp/project/.env",
+		});
+	});
+
+	test("prefers --env over CTB_ENV", () => {
+		expect(
+			resolveSelectedEnvFile("/tmp/project", ".env2", {
+				CTB_ENV: "/tmp/shared/.env3",
+			}),
+		).toEqual({
+			envName: ".env2",
+			envPath: "/tmp/project/.env2",
+		});
+	});
+
+	test("uses CTB_ENV as a fallback selector", () => {
+		expect(
+			resolveSelectedEnvFile("/tmp/project", undefined, {
+				CTB_ENV: "/tmp/shared/.env2",
+			}),
+		).toEqual({
+			envName: "/tmp/shared/.env2",
+			envPath: "/tmp/shared/.env2",
+		});
+	});
+});
 
 describe("resolveInstanceKey", () => {
 	test("uses the working directory for the default .env", () => {

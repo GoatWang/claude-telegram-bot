@@ -44,7 +44,10 @@ OPTIONS:
   --resume         Auto-resume previous sessions on startup
 
 ENVIRONMENT:
-  Reads the selected env file from the working directory. Required variables:
+  Chooses the env file in this order: --env, CTB_ENV, then .env.
+  CTB_ENV may be a relative name like .env2 or a full absolute path.
+  The resolved absolute path is exported to CTB_ENV and CTB_ENV_FILE.
+  Required variables from the selected env file:
     TELEGRAM_BOT_TOKEN      - Bot token from @BotFather
     TELEGRAM_ALLOWED_USERS  - Comma-separated Telegram user IDs
     CLAUDE_CODE_PATH        - Optional, defaults to ~/.local/bin/claude in ctb

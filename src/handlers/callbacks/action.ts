@@ -80,7 +80,9 @@ export async function handleActionCallback(
 		commit: "Commit",
 		yes: "Yes",
 	};
-	const displayName = actionDisplayMap[action] || action;
+		const displayName = action
+			? actionDisplayMap[action] || action
+			: "Unknown";
 
 	// Echo user's choice
 	await ctx.reply(`👆 選擇: ${displayName}`);

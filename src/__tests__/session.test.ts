@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { AgentProvider } from "../providers/types";
 import { ClaudeSession, getThinkingLevel } from "../session";
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe("getThinkingLevel", () => {
 	// Default keywords from config.ts:
 	// THINKING_KEYWORDS: "think,pensa,ragiona"
@@ -386,6 +388,65 @@ describe("ClaudeSession", () => {
 
 			expect(result).toBe("No response from Claude.");
 			expect(interruptedSession.consumeInterruptFlag()).toBe(true);
+		});
+
+		test("stopAndWait waits for delayed abort cleanup before follow-up message", async () => {
+			let queryCount = 0;
+			const provider: AgentProvider<any, any, any> = {
+				id: "test",
+				createQuery({ abortController }) {
+					queryCount += 1;
+					if (queryCount === 2) {
+						return (async function* () {
+							yield {
+								type: "assistant",
+								message: { content: [{ type: "text", text: "follow-up ok" }] },
+							};
+							yield { type: "result" };
+						})() as any;
+					}
+
+					return (async function* () {
+						yield {
+							type: "assistant",
+							message: { content: [{ type: "text", text: "partial" }] },
+						};
+
+						while (!abortController.signal.aborted) {
+							await sleep(10);
+						}
+
+						// Simulate provider shutdown lag after abort.
+						await sleep(120);
+						throw new Error("Query cancelled by user");
+					})() as any;
+				},
+			};
+			const interruptedSession = new ClaudeSession(provider);
+			const cleanup = interruptedSession.startProcessing();
+
+			const firstRun = interruptedSession
+				.sendMessageStreaming("first", "tester", 1, async () => {})
+				.finally(() => cleanup());
+
+			await sleep(30);
+			interruptedSession.markInterrupt();
+			await interruptedSession.stopAndWait(1000);
+			interruptedSession.consumeInterruptFlag();
+
+			expect(interruptedSession.isRunning).toBe(false);
+
+			const followUp = await interruptedSession.sendMessageStreaming(
+				"follow-up",
+				"tester",
+				1,
+				async () => {},
+			);
+
+			await firstRun;
+
+			expect(followUp).toBe("follow-up ok");
+			expect(interruptedSession.isRunning).toBe(false);
 		});
 	});
 

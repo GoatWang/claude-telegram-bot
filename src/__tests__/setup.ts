@@ -6,3 +6,4 @@
 process.env.TELEGRAM_BOT_TOKEN = "test-token-12345";
 process.env.TELEGRAM_ALLOWED_USERS = "123,456,789";
 process.env.CLAUDE_WORKING_DIR = "/tmp";
+process.env.ALLOWED_PATHS = "/tmp";

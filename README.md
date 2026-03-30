@@ -83,7 +83,7 @@ cd ~/my-project
 ctb
 ```
 
-On first run, `ctb` will prompt for your Telegram bot token and allowed user IDs, then optionally save them to `.env` or another file selected with `--env=...`. Resume state is isolated per working directory and selected env file.
+On first run, `ctb` will prompt for your Telegram bot token and allowed user IDs, then optionally save them to `.env` or another file selected with `--env=...`. You can also set `CTB_ENV` to a relative filename such as `.env2` or a full absolute path before launch. Resume state is isolated per working directory and selected env file.
 
 ### Install from Source
 
@@ -105,12 +105,17 @@ bun run start
 TELEGRAM_BOT_TOKEN=1234567890:ABC-DEF...
 TELEGRAM_ALLOWED_USERS=123456789
 
+# Optional launcher selector
+CTB_ENV=/full/path/to/.env2                 # Or a relative name like .env2
+
 # Optional
 CLAUDE_WORKING_DIR=/path/to/your/folder    # Fallback working directory
 CLAUDE_CODE_PATH=~/.local/bin/claude       # Default Claude Code path used by ctb
 FIRST_PROMPT=Always answer in Traditional Chinese.  # Injected on each new session
 OPENAI_API_KEY=sk-...                      # For voice transcription
 ```
+
+When `ctb` starts, it exports the resolved env file path back into `CTB_ENV` and `CTB_ENV_FILE` so child processes can read the active env file unambiguously.
 
 ### Working Directory
 

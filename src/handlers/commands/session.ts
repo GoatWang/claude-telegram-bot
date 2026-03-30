@@ -120,10 +120,14 @@ export async function handleNew(ctx: Context): Promise<void> {
 
 	// Stop any running query
 	if (session.isRunning) {
-		const result = await session.stop();
-		if (result) {
-			await Bun.sleep(100);
-			session.clearStopRequested();
+		try {
+			await session.stopAndWait();
+		} catch (error) {
+			console.error("Failed to stop running query before /new:", error);
+			await ctx.reply(
+				"⚠️ Current query did not stop cleanly. Please try /new again.",
+			);
+			return;
 		}
 	}
 
@@ -176,13 +180,13 @@ export async function handleStop(ctx: Context): Promise<void> {
 	const session = sessionManager.getSession(chatId);
 
 	if (session.isRunning) {
-		const result = await session.stop();
-		if (result) {
-			// Wait for the abort to be processed, then clear stopRequested so next message can proceed
-			await Bun.sleep(100);
-			session.clearStopRequested();
+		try {
+			await session.stopAndWait();
+		} catch (error) {
+			console.error("Failed to stop running query for /stop:", error);
+			await ctx.reply("⚠️ Query did not stop cleanly. Please try again.");
 		}
-		// Silent stop - no message shown
+		// Silent stop on success - no message shown
 	}
 	// If nothing running, also stay silent
 }

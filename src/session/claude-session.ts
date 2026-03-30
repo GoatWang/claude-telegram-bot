@@ -117,6 +117,10 @@ class ClaudeSession {
 		process.env.SAVE_DEBOUNCE_MS || "500",
 		10,
 	);
+	private readonly STOP_WAIT_TIMEOUT_MS = Number.parseInt(
+		process.env.STOP_WAIT_TIMEOUT_MS || "30000",
+		10,
+	);
 
 	// Mutable working directory (can be changed with /cd)
 	private _workingDir: string = WORKING_DIR;
@@ -126,6 +130,7 @@ class ClaudeSession {
 	private stopRequested = false;
 	private _isProcessing = false;
 	private _wasInterruptedByNewMessage = false;
+	private _idleWaiters = new Set<() => void>();
 
 	// Concurrent query tracking
 	private static _activeQueries = 0;
@@ -426,6 +431,61 @@ class ClaudeSession {
 	}
 
 	/**
+	 * Wait until the session is fully idle.
+	 */
+	async waitUntilIdle(timeoutMs = this.STOP_WAIT_TIMEOUT_MS): Promise<void> {
+		if (!this.isRunning) {
+			return;
+		}
+
+		await new Promise<void>((resolve, reject) => {
+			const onIdle = () => {
+				cleanup();
+				resolve();
+			};
+			const cleanup = () => {
+				this._idleWaiters.delete(onIdle);
+				if (timeout) {
+					clearTimeout(timeout);
+				}
+			};
+			const timeout =
+				timeoutMs > 0
+					? setTimeout(() => {
+							cleanup();
+							reject(
+								new Error(
+									`Timed out waiting ${timeoutMs}ms for session to stop`,
+								),
+							);
+						}, timeoutMs)
+					: null;
+
+			this._idleWaiters.add(onIdle);
+
+			if (!this.isRunning) {
+				onIdle();
+			}
+		});
+	}
+
+	/**
+	 * Request stop and wait for the current run to finish unwinding.
+	 */
+	async stopAndWait(
+		timeoutMs = this.STOP_WAIT_TIMEOUT_MS,
+	): Promise<"stopped" | "pending" | false> {
+		const result = await this.stop();
+		if (!result) {
+			return false;
+		}
+
+		await this.waitUntilIdle(timeoutMs);
+		this.clearStopRequested();
+		return result;
+	}
+
+	/**
 	 * Mark processing as started.
 	 * Returns a cleanup function to call when done.
 	 */
@@ -433,6 +493,7 @@ class ClaudeSession {
 		this._isProcessing = true;
 		return () => {
 			this._isProcessing = false;
+			this.resolveIdleWaiters();
 		};
 	}
 
@@ -879,6 +940,7 @@ class ClaudeSession {
 			this.abortController = null;
 			this.queryStarted = null;
 			this.currentTool = null;
+			this.resolveIdleWaiters();
 		}
 
 		this.lastActivity = new Date();
@@ -925,6 +987,17 @@ class ClaudeSession {
 		this._queryInstance = null;
 		this._userMessageUuids = [];
 		console.log("Session cleared");
+	}
+
+	private resolveIdleWaiters(): void {
+		if (this.isRunning || this._idleWaiters.size === 0) {
+			return;
+		}
+		const waiters = [...this._idleWaiters];
+		this._idleWaiters.clear();
+		for (const waiter of waiters) {
+			waiter();
+		}
 	}
 
 	/**

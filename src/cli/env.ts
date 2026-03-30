@@ -14,6 +14,19 @@ export function resolveEnvFilePath(
 	return resolve(dir, envFile || DEFAULT_ENV_FILE);
 }
 
+export function resolveSelectedEnvFile(
+	dir: string,
+	envFile: string | undefined,
+	env: NodeJS.ProcessEnv,
+): { envName: string; envPath: string } {
+	const envName = envFile || env.CTB_ENV || DEFAULT_ENV_FILE;
+
+	return {
+		envName,
+		envPath: resolveEnvFilePath(dir, envName),
+	};
+}
+
 export function resolveInstanceKey(
 	dir: string,
 	envFile = DEFAULT_ENV_FILE,
