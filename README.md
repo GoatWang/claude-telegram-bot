@@ -15,6 +15,8 @@ This fork adds the following features on top of the upstream:
 
 2. **`--chrome` flag for Chrome browser automation**: Pass `--chrome` when starting `ctb` to enable Claude in Chrome MCP integration, allowing Claude to control a Chrome browser via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/) extension.
 
+3. **Configurable tool status messages**: Set `SHOW_TOOL_STATUS_MESSAGES=false` to hide live tool status updates in Telegram while keeping the Claude response stream intact. The default is `true` (tool messages on).
+
 ### Install from this fork
 
 ```bash
@@ -113,6 +115,7 @@ CLAUDE_WORKING_DIR=/path/to/your/folder    # Fallback working directory
 CLAUDE_CODE_PATH=~/.local/bin/claude       # Default Claude Code path used by ctb
 FIRST_PROMPT=Always answer in Traditional Chinese.  # Injected on each new session
 OPENAI_API_KEY=sk-...                      # For voice transcription
+SHOW_TOOL_STATUS_MESSAGES=true             # Show live tool status messages (default: true)
 ```
 
 When `ctb` starts, it exports the resolved env file path back into `CTB_ENV` and `CTB_ENV_FILE` so child processes can read the active env file unambiguously.

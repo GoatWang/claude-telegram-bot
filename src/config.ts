@@ -371,6 +371,8 @@ export const MERGE_TOOL_STATUSES =
 	(process.env.MERGE_TOOL_STATUSES || "true").toLowerCase() === "true";
 export const SHOW_THINKING_MESSAGES =
 	(process.env.SHOW_THINKING_MESSAGES || "false").toLowerCase() === "true";
+export const SHOW_TOOL_STATUS_MESSAGES =
+	(process.env.SHOW_TOOL_STATUS_MESSAGES || "true").toLowerCase() === "true";
 
 // ============== File Paths ==============
 

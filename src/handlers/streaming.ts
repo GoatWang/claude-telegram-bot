@@ -10,6 +10,7 @@ import type { Message } from "grammy/types";
 import {
 	BUTTON_LABEL_MAX_LENGTH,
 	MESSAGE_EFFECTS,
+	SHOW_TOOL_STATUS_MESSAGES,
 	STREAMING_THROTTLE_MS,
 	TELEGRAM_MESSAGE_LIMIT,
 	TELEGRAM_SAFE_LIMIT,
@@ -170,7 +171,12 @@ export function createStatusCallback(
 				);
 			} else if (statusType === "tool") {
 				// Mark previous tool as done before starting new one
-				if (state.currentToolName && state.currentToolEmoji && chatId) {
+				if (
+					SHOW_TOOL_STATUS_MESSAGES &&
+					state.currentToolName &&
+					state.currentToolEmoji &&
+					chatId
+				) {
 					await telegramMessageQueue.enqueue(
 						ctx,
 						MessageType.TOOL_STATUS,
@@ -201,21 +207,28 @@ export function createStatusCallback(
 				state.currentToolName = toolName;
 				state.currentToolEmoji = emoji;
 
-				// Enqueue tool status (will be merged with other tools)
-				await telegramMessageQueue.enqueue(
-					ctx,
-					MessageType.TOOL_STATUS,
-					MessagePriority.LOW,
-					emoji,
-					async () => ctx.reply(content, { parse_mode: "HTML" }),
-					{ toolName, toolStatus: "running" },
-				);
+				if (SHOW_TOOL_STATUS_MESSAGES) {
+					// Enqueue tool status (will be merged with other tools)
+					await telegramMessageQueue.enqueue(
+						ctx,
+						MessageType.TOOL_STATUS,
+						MessagePriority.LOW,
+						emoji,
+						async () => ctx.reply(content, { parse_mode: "HTML" }),
+						{ toolName, toolStatus: "running" },
+					);
+				}
 
 				// Note: We no longer use individual tool messages with spinners
 				// Tools are now displayed in a merged overview message
 			} else if (statusType === "text" && segmentId !== undefined) {
 				// Mark current tool as done when text starts (tool finished)
-				if (state.currentToolName && state.currentToolEmoji && chatId) {
+				if (
+					SHOW_TOOL_STATUS_MESSAGES &&
+					state.currentToolName &&
+					state.currentToolEmoji &&
+					chatId
+				) {
 					await telegramMessageQueue.enqueue(
 						ctx,
 						MessageType.TOOL_STATUS,
@@ -227,9 +240,9 @@ export function createStatusCallback(
 							toolStatus: "done",
 						},
 					);
-					state.currentToolName = null;
-					state.currentToolEmoji = null;
 				}
+				state.currentToolName = null;
+				state.currentToolEmoji = null;
 				// New text segment means tool finished, stop spinner
 				state.stopToolSpinner();
 				const now = Date.now();
