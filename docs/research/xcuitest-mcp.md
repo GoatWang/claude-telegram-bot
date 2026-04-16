@@ -73,10 +73,15 @@ single file. For richer features (chunked uploads, websockets) you'd swap in
 ### The MCP server (any platform)
 
 `src/server.ts` is a stdio MCP server using the official
-`@modelcontextprotocol/sdk`. It exposes 9 tools that map 1:1 onto engine
-operations: `xcui_launch_app`, `xcui_tap`, `xcui_type_text`, `xcui_swipe`,
-`xcui_screenshot`, `xcui_dump_hierarchy`, `xcui_wait_for`,
-`xcui_press_button`, `xcui_terminate_app`.
+`@modelcontextprotocol/sdk`. It exposes 13 tools split into two layers:
+
+- **Orchestration** (`xcui_session_start`, `xcui_session_stop`,
+  `xcui_session_status`, `xcui_sim_list`) — wraps `xcrun simctl` +
+  `xcodebuild test` so the agent can stand up a session end-to-end without
+  human help.
+- **Interaction** (`xcui_launch_app`, `xcui_tap`, `xcui_type_text`,
+  `xcui_swipe`, `xcui_screenshot`, `xcui_dump_hierarchy`, `xcui_wait_for`,
+  `xcui_press_button`, `xcui_terminate_app`) — forwarded to the engine.
 
 The element selector is a small declarative `query` shape:
 
@@ -118,26 +123,70 @@ shape.
 
 The constraint that XCUITest only runs on macOS makes iteration slow. To
 break that loop, the experiment ships a Linux-runnable mock engine
-(`src/mock-engine.ts`) that speaks the same wire protocol, plus a test
-client (`src/test-client.ts`) that drives the MCP server through a fake
-login flow.
+(`src/mock-engine.ts`) that speaks the same wire protocol. The session
+manager picks it up automatically (`XCUI_DEV_MODE` defaults to `mock` on
+non-Darwin) so `xcui_session_start` spawns it instead of running
+`xcodebuild`.
 
-Running it on this Linux box produces:
+Running the test client on this Linux box produces:
 
 ```
-✓ discovered 9 tools: xcui_launch_app, xcui_terminate_app, xcui_tap, ...
+✓ discovered 13 tools
+
+=== Phase 1: session lifecycle ===
+→ listing simulators            → 1: Linux Mock (iPhone 15)
+→ checking status before start  → { running: false, backend: 'mock' }
+→ starting session              → running=true backend=mock pid=10242
+
+=== Phase 2: drive the app ===
 → launching app                 → { launched: 'com.example.demo' }
-→ dumping hierarchy             → navigationBar#, textField#usernameField, ...
-→ typing username               → { typed: 'alice', into: 'usernameField' }
-→ typing password               → { typed: 'hunter2', into: 'passwordField' }
-→ tapping login                 → { tapped: 'loginButton' }
-→ waiting for welcome message   → { found: true, element: { ... 'Welcome alice' ... } }
-→ taking screenshot             → png 92 bytes (base64), 1x1
-✅ end-to-end OK
+→ hierarchy                     → navigationBar#, textField#usernameField, ...
+→ login flow                    → Welcome alice
+→ screenshot                    → 92 bytes base64
+
+=== Phase 3: tear down ===
+→ stopping session              → SIGTERM mock-engine
+✅ full lifecycle OK
 ```
 
-This proves the MCP↔engine wire path works. Swapping the mock for the real
-Swift engine is a matter of pointing `XCUI_ENGINE_URL` at the device.
+This proves both the orchestration (start/stop) and interaction wire paths
+work. Swapping the mock for the real Swift engine is just a matter of
+running on macOS and supplying `project` / `scheme` / `deviceName` / `testIdentifier`.
+
+## Orchestration design notes
+
+Wrapping `simctl` + `xcodebuild` inside the MCP server is the difference
+between "agent has to ask a human to start the simulator" and "agent owns
+the whole run". A few non-obvious decisions in `src/session.ts`:
+
+- **Stateful server, but mutex-serialized.** The session manager holds the
+  child process handle and simulator UDID in memory. Start/stop are funneled
+  through a promise-chain mutex so an agent can't race itself into a
+  half-state.
+- **Health-poll, not log-grep.** `xcodebuild test` writes a lot before the
+  test method actually starts. We poll the engine's `/health` endpoint with
+  a 60s deadline rather than scrape stdout, which is what xcodebuild's log
+  format makes brittle.
+- **Cleanup on parent death.** `process.on('exit'/'SIGINT'/'SIGTERM')`
+  handlers send `SIGTERM` then `SIGKILL` to the child. Without this,
+  killing the MCP server orphans `xcodebuild` (which orphans the test
+  runner) and you accumulate stuck processes the simulator can't recover
+  from cleanly.
+- **Idempotent boot.** `xcrun simctl boot` errors with "Booted" when the
+  device is already up. We swallow that specific error so re-issuing
+  `xcui_session_start` after a partial failure works.
+- **`XCUI_DEV_MODE` escape hatch.** Forces backend selection for tests and
+  for mac-host dev where you don't want the xcodebuild cold-start tax.
+
+What's deliberately NOT in scope:
+
+- Build-only mode (`xcodebuild build-for-testing`) — falls under sketch
+  for a future `xcui_build` tool.
+- Multi-session fan-out (one MCP server, many sims). Single-tenant on
+  purpose; agents that need parallelism should run multiple servers.
+- App install/uninstall. The engine launches by bundle id, so the app
+  must already be installed; `xcui_install_app` (wrapping `simctl install`)
+  is a one-liner addition when needed.
 
 ## Trade-offs and open questions
 

@@ -15,8 +15,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { EngineClient } from "./engine-client.ts";
 import type { ElementQuery } from "./protocol.ts";
+import { SessionManager, listSimulators } from "./session.ts";
 
 const engine = new EngineClient();
+const session = new SessionManager();
 
 const server = new Server(
   { name: "xcuitest", version: "0.1.0" },
@@ -36,6 +38,40 @@ const elementQuerySchema = {
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    {
+      name: "xcui_session_start",
+      description:
+        "Boot the simulator, build the UI test target, and launch the long-lived XCUITest engine. After this returns the other xcui_* tools are usable. On non-macOS hosts (or with XCUI_DEV_MODE=mock) this spawns the mock engine instead.",
+      inputSchema: {
+        type: "object" as const,
+        properties: {
+          project: { type: "string", description: "Path to .xcodeproj or .xcworkspace (macOS only)" },
+          scheme: { type: "string", description: "UI test scheme (macOS only)" },
+          deviceName: { type: "string", description: "Simulator device name, e.g. 'iPhone 15' (macOS only)" },
+          bundleId: { type: "string", description: "App-under-test bundle id (recorded for later use)" },
+          testIdentifier: {
+            type: "string",
+            description: "e.g. 'MyAppUITests/InteractiveEngineTests/testRunForever' (macOS only)",
+          },
+          enginePort: { type: "number", default: 8765 },
+        },
+      },
+    },
+    {
+      name: "xcui_session_stop",
+      description: "Tear down the running engine (and shut down the sim if we booted it).",
+      inputSchema: { type: "object" as const, properties: {} },
+    },
+    {
+      name: "xcui_session_status",
+      description: "Report whether a session is running, plus sim/engine info.",
+      inputSchema: { type: "object" as const, properties: {} },
+    },
+    {
+      name: "xcui_sim_list",
+      description: "List available iOS simulators (macOS) or the mock device (other platforms).",
+      inputSchema: { type: "object" as const, properties: {} },
+    },
     {
       name: "xcui_launch_app",
       description: "Launch the iOS app with the given bundle identifier.",
@@ -130,6 +166,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     let result: unknown;
     switch (name) {
+      case "xcui_session_start":
+        result = await session.start({
+          project: args.project as string | undefined,
+          scheme: args.scheme as string | undefined,
+          deviceName: args.deviceName as string | undefined,
+          bundleId: args.bundleId as string | undefined,
+          testIdentifier: args.testIdentifier as string | undefined,
+          enginePort: args.enginePort as number | undefined,
+        });
+        break;
+      case "xcui_session_stop":
+        result = await session.stop();
+        break;
+      case "xcui_session_status":
+        result = session.status();
+        break;
+      case "xcui_sim_list":
+        result = await listSimulators();
+        break;
       case "xcui_launch_app":
         result = await engine.send({ op: "launch_app", bundleId: String(args.bundleId) });
         break;

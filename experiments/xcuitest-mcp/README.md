@@ -29,58 +29,82 @@ accept commands one at a time.
 | Path                              | Role                                                         |
 | --------------------------------- | ------------------------------------------------------------ |
 | `src/protocol.ts`                 | Wire types shared by MCP server and engine                   |
-| `src/server.ts`                   | MCP server (stdio); exposes 9 tools                          |
+| `src/server.ts`                   | MCP server (stdio); exposes 13 tools                         |
+| `src/session.ts`                  | Simulator + engine lifecycle (real macOS path + Linux mock)  |
 | `src/engine-client.ts`            | HTTP client used by the MCP server                           |
 | `src/mock-engine.ts`              | Linux-runnable fake engine for end-to-end tests              |
-| `src/test-client.ts`              | Drives the MCP server through a fake login flow              |
+| `src/test-client.ts`              | Drives the MCP server through full lifecycle + login flow    |
 | `engine-swift/InteractiveEngine.swift` | The macOS side: long-lived `XCTestCase` + embedded HTTP |
 
 ## Run on Linux (mock loop)
 
-```bash
-# 1. mock engine in one shell
-bun run experiments/xcuitest-mcp/src/mock-engine.ts
+The MCP server now owns the engine lifecycle, so a single command runs the
+whole flow (start session → drive UI → stop session):
 
-# 2. end-to-end test in another shell
+```bash
 bun run experiments/xcuitest-mcp/src/test-client.ts
 ```
 
-Expected output:
+Expected output (abridged):
 
 ```
-✓ discovered 9 tools: xcui_launch_app, ...
-→ launching app
-   { launched: 'com.example.demo' }
-→ dumping hierarchy
-   navigationBar#, textField#usernameField, secureTextField#passwordField, button#loginButton
-→ typing username
-→ typing password
-→ tapping login
-→ waiting for welcome message
-→ taking screenshot
-   png 92 bytes (base64), 1x1
-✅ end-to-end OK
+✓ discovered 13 tools
+
+=== Phase 1: session lifecycle ===
+→ listing simulators            → 1: Linux Mock (iPhone 15)
+→ checking status before start  → { running: false, backend: 'mock' }
+→ starting session              → running=true backend=mock pid=10242
+
+=== Phase 2: drive the app ===
+→ launching app                 → { launched: 'com.example.demo' }
+→ hierarchy                     → navigationBar#, textField#usernameField, ...
+→ login flow                    → Welcome alice
+→ screenshot                    → 92 bytes base64
+
+=== Phase 3: tear down ===
+→ stopping session              → SIGTERM mock-engine
+✅ full lifecycle OK
 ```
 
 ## Run on macOS (real loop)
 
 1. Add `engine-swift/InteractiveEngine.swift` to a UI Testing target in your
    Xcode project.
-2. Boot a simulator and launch the engine:
-   ```bash
-   xcodebuild test \
-     -scheme MyAppUITests \
-     -destination 'platform=iOS Simulator,name=iPhone 15' \
-     -only-testing:MyAppUITests/InteractiveEngineTests/testRunForever
+2. Wire the MCP server into your agent's MCP client config (no env needed —
+   `darwin` auto-selects the macOS backend):
+   ```jsonc
+   { "mcpServers": { "xcuitest": { "command": "bun",
+       "args": ["run", "/path/to/experiments/xcuitest-mcp/src/server.ts"] } } }
    ```
-3. Point the MCP server at it (default URL works):
-   ```bash
-   XCUI_ENGINE_URL=http://127.0.0.1:8765 \
-     bun run experiments/xcuitest-mcp/src/server.ts
+3. From the agent, call `xcui_session_start` with the project info:
+   ```json
+   {
+     "project": "/path/to/MyApp.xcodeproj",
+     "scheme": "MyAppUITests",
+     "deviceName": "iPhone 15",
+     "bundleId": "com.example.demo",
+     "testIdentifier": "MyAppUITests/InteractiveEngineTests/testRunForever"
+   }
    ```
-4. Wire the MCP server into your agent's MCP client config.
+   The session manager boots the sim, runs `xcodebuild test ...`, polls
+   `/health`, and only returns once the engine is ready. Subsequent
+   `xcui_*` calls go straight to it. `xcui_session_stop` tears everything down.
+
+If you'd rather drive things by hand, the old way still works — start the
+engine via `xcodebuild test` yourself and skip `xcui_session_start`.
 
 ## MCP tools exposed
+
+**Session / orchestration** (owned by `src/session.ts`):
+
+| Tool                  | Args                                                                          | Result                                  |
+| --------------------- | ----------------------------------------------------------------------------- | --------------------------------------- |
+| `xcui_session_start`  | `project`, `scheme`, `deviceName`, `bundleId`, `testIdentifier`, `enginePort?`| `{ running, backend, sim, enginePid, engineUrl }` |
+| `xcui_session_stop`   | —                                                                             | `{ running:false }`                     |
+| `xcui_session_status` | —                                                                             | current state                           |
+| `xcui_sim_list`       | —                                                                             | array of `{ udid, name, state, runtime }` |
+
+**Interaction** (forwarded to the engine):
 
 | Tool                  | Args                                  | Result                          |
 | --------------------- | ------------------------------------- | ------------------------------- |
@@ -95,6 +119,16 @@ Expected output:
 | `xcui_press_button`   | `home \| volume_up \| volume_down`    | `{ pressed }`                   |
 
 `query` is `{ type?, identifier?, label?, labelContains?, index? }`.
+
+## Backends
+
+| Backend | Selected when                                | Behaviour                                                  |
+| ------- | -------------------------------------------- | ---------------------------------------------------------- |
+| `macos` | `process.platform === 'darwin'` (default)    | `xcrun simctl boot` + `xcodebuild test`                    |
+| `mock`  | non-Darwin, or `XCUI_DEV_MODE=mock`          | spawns `mock-engine.ts` so the wire path can be exercised  |
+
+Force a backend with `XCUI_DEV_MODE=mock` (useful on a Mac for local dev
+without paying the xcodebuild cold-start tax).
 
 ## Caveats
 
