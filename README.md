@@ -15,7 +15,11 @@ This fork adds the following features on top of the upstream:
 
 2. **`--chrome` flag for Chrome browser automation**: Pass `--chrome` when starting `ctb` to enable Claude in Chrome MCP integration, allowing Claude to control a Chrome browser via the [Claude in Chrome](https://chromewebstore.google.com/detail/claude-in-chrome/) extension.
 
-3. **Configurable tool status messages**: Set `SHOW_TOOL_STATUS_MESSAGES=false` to hide live tool status updates in Telegram while keeping the Claude response stream intact. The default is `true` (tool messages on).
+3. **`--env` flag for multi-profile launches**: Start `ctb` with `--env=.env2` or another env file path to switch bot credentials/config without changing the working directory. Session resume and restart state stay isolated per working directory plus selected env file.
+
+4. **Default Claude session settings are explicit**: New Claude sessions default to the `sonnet` model, Claude plan mode starts off, and Claude SDK requests are sent with `effort: "max"`. Extended thinking is still off by default unless you trigger it with `/think` or matching keywords.
+
+5. **Configurable tool status messages**: Set `SHOW_TOOL_STATUS_MESSAGES=false` to hide live tool status updates in Telegram while keeping the Claude response stream intact. The default is `true` (tool messages on).
 
 ### Install from this fork
 
