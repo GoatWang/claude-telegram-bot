@@ -33,7 +33,6 @@ import {
 	handleModel,
 	handleNew,
 	handlePdf,
-	handlePending,
 	handlePhoto,
 	handlePlan,
 	handleProvider,
@@ -84,8 +83,7 @@ bot.use(async (ctx, next) => {
 	return next();
 });
 
-// Note: sequentialize removed - messages during active query are now queued
-// and can be viewed/executed via /pending command
+// Note: sequentialize removed - messages during active query are now queued.
 
 // ============== Command Handlers ==============
 
@@ -118,8 +116,6 @@ bot.command("compact", handleCompact);
 bot.command("handoff", handleHandoff);
 bot.command("undo", handleUndo);
 bot.command("bookmarks", handleBookmarks);
-bot.command("pending", handlePending);
-bot.command("q", handlePending); // Alias for queue
 bot.command("diff", handleDiff);
 
 // ============== Message Handlers ==============

@@ -191,7 +191,6 @@ const menuCommands = [
 	{ command: "status", description: "Check what Claude is doing" },
 	{ command: "retry", description: "Retry last message" },
 	{ command: "handoff", description: "Carry response to new session" },
-	{ command: "pending", description: "Show queued messages" },
 	{ command: "model", description: "Switch model (sonnet/opus/haiku)" },
 	{ command: "provider", description: "Switch agent provider" },
 	{ command: "worktree", description: "Create and enter a worktree" },
