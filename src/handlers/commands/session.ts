@@ -73,7 +73,6 @@ Working directory: <code>${workDir}</code>${webInfo}
 /resume - Resume last session
 /retry - Retry last message
 /handoff - Carry response to new session
-/pending - Show queued messages
 
 <b>Model:</b>
 /model - Switch model (sonnet/opus/haiku)
