@@ -84,6 +84,63 @@ function savePhotoToPersistentDir(
 	}
 }
 
+function escapeRegex(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeSlashCommandCaption(caption: string): string {
+	let normalized = caption.trimStart();
+	if (!normalized.startsWith("/") || !BOT_USERNAME) {
+		return normalized;
+	}
+
+	const escapedUsername = escapeRegex(BOT_USERNAME);
+	normalized = normalized.replace(
+		new RegExp(`^(\\/\\S+?)@${escapedUsername}(?=\\s|$)`),
+		"$1",
+	);
+	normalized = normalized.replace(
+		new RegExp(`^(\\/\\S+)\\s+@${escapedUsername}(?=\\s|$)`),
+		"$1",
+	);
+
+	return normalized;
+}
+
+/**
+ * Build the Claude prompt for one or more saved photos.
+ *
+ * Slash-command captions must stay at the beginning of the prompt so Claude
+ * can still resolve custom commands such as /add_task.
+ */
+export function buildPhotoPrompt(
+	savedPaths: string[],
+	caption: string | undefined,
+): string {
+	const isSlashCommand = caption?.trimStart().startsWith("/") ?? false;
+	const normalizedCaption =
+		isSlashCommand && caption ? normalizeSlashCommandCaption(caption) : caption;
+
+	if (savedPaths.length === 1) {
+		const photoContext = `[Photo saved to: ${savedPaths[0]}]`;
+		if (!normalizedCaption) {
+			return `Please analyze this image (saved to: ${savedPaths[0]})`;
+		}
+		return isSlashCommand
+			? `${normalizedCaption}\n\n${photoContext}`
+			: `${photoContext}\n\n${normalizedCaption}`;
+	}
+
+	const pathsList = savedPaths.map((p, i) => `${i + 1}. ${p}`).join("\n");
+	const photosContext = `[Photos saved to:\n${pathsList}]`;
+	if (!normalizedCaption) {
+		return `Please analyze these ${savedPaths.length} images (saved to:\n${pathsList})`;
+	}
+	return isSlashCommand
+		? `${normalizedCaption}\n\n${photosContext}`
+		: `${photosContext}\n\n${normalizedCaption}`;
+}
+
 /**
  * Process photos with Claude.
  */
@@ -109,17 +166,7 @@ async function processPhotos(
 	const stopProcessing = session.startProcessing();
 
 	// Build prompt with saved paths
-	let prompt: string;
-	if (savedPaths.length === 1) {
-		prompt = caption
-			? `[Photo saved to: ${savedPaths[0]}]\n\n${caption}`
-			: `Please analyze this image (saved to: ${savedPaths[0]})`;
-	} else {
-		const pathsList = savedPaths.map((p, i) => `${i + 1}. ${p}`).join("\n");
-		prompt = caption
-			? `[Photos saved to:\n${pathsList}]\n\n${caption}`
-			: `Please analyze these ${savedPaths.length} images (saved to:\n${pathsList})`;
-	}
+	const prompt = buildPhotoPrompt(savedPaths, caption);
 
 	// Start typing
 	const typing = startTypingIndicator(ctx);

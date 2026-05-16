@@ -21,7 +21,13 @@ function createMockContext(
 		chatType?: "private" | "group" | "supergroup" | "channel";
 		chatId?: number;
 		messageText?: string;
+		messageCaption?: string;
 		entities?: Array<{
+			type: string;
+			offset: number;
+			length: number;
+		}>;
+		captionEntities?: Array<{
 			type: string;
 			offset: number;
 			length: number;
@@ -34,8 +40,10 @@ function createMockContext(
 	const {
 		chatType = "private",
 		chatId = 12345,
-		messageText = "",
+		messageText,
+		messageCaption,
 		entities = [],
+		captionEntities = [],
 		replyToFrom,
 		memberCount,
 		memberCountError = false,
@@ -55,8 +63,10 @@ function createMockContext(
 			id: chatId,
 		},
 		message: {
-			text: messageText,
-			entities,
+			...(messageText !== undefined ? { text: messageText, entities } : {}),
+			...(messageCaption !== undefined
+				? { caption: messageCaption, caption_entities: captionEntities }
+				: {}),
 			reply_to_message: replyToFrom
 				? { from: { username: replyToFrom.username } }
 				: undefined,
@@ -156,6 +166,28 @@ describe("isBotMentioned", () => {
 			memberCount: 10,
 			messageText: "/start@test_bot",
 			entities: [{ type: "bot_command", offset: 0, length: 15 }],
+		});
+		const result = await isBotMentioned(ctx, botUsername);
+		expect(result).toBe(true);
+	});
+
+	test("returns true when bot is mentioned in a photo caption", async () => {
+		const ctx = createMockContext({
+			chatType: "group",
+			memberCount: 10,
+			messageCaption: "@test_bot check this screenshot",
+			captionEntities: [{ type: "mention", offset: 0, length: 9 }],
+		});
+		const result = await isBotMentioned(ctx, botUsername);
+		expect(result).toBe(true);
+	});
+
+	test("returns true for bot_command with @username in a caption", async () => {
+		const ctx = createMockContext({
+			chatType: "group",
+			memberCount: 10,
+			messageCaption: "/add_task@test_bot fix this",
+			captionEntities: [{ type: "bot_command", offset: 0, length: 18 }],
 		});
 		const result = await isBotMentioned(ctx, botUsername);
 		expect(result).toBe(true);

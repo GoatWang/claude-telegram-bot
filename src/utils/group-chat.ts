@@ -76,8 +76,11 @@ export async function isBotMentioned(
 	const message = ctx.message;
 	if (!message) return false;
 
-	const text = message.text || "";
-	const entities = message.entities || [];
+	const hasText = typeof message.text === "string";
+	const text = hasText ? message.text ?? "" : message.caption ?? "";
+	const entities = hasText
+		? message.entities ?? []
+		: message.caption_entities ?? [];
 
 	// Check entities for mentions and bot commands
 	for (const entity of entities) {
