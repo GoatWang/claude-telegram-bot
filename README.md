@@ -110,6 +110,8 @@ bun run start
 # Required
 TELEGRAM_BOT_TOKEN=1234567890:ABC-DEF...
 TELEGRAM_ALLOWED_USERS=123456789
+# Or allow all Telegram users:
+# TELEGRAM_ALLOWED_USERS=.
 
 # Optional launcher selector
 CTB_ENV=/full/path/to/.env2                 # Or a relative name like .env2
@@ -154,7 +156,7 @@ Add the bot to Telegram groups for collaborative debugging! 👥
 
 - **@mention required**: Bot only responds when mentioned with `@bot_username` in groups
 - **Private chats unchanged**: No mention needed in direct messages
-- **Authorization**: Only `TELEGRAM_ALLOWED_USERS` can control the bot
+- **Authorization**: Only `TELEGRAM_ALLOWED_USERS` can control the bot; set `TELEGRAM_ALLOWED_USERS=.` to allow all Telegram users
 - **Visibility**: Authorized users' conversations are visible to all group members
 - **Privacy**: Unauthorized users get private notifications (not visible to group)
 

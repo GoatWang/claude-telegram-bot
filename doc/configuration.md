@@ -9,7 +9,7 @@ At startup, `ctb` resolves the env file to an absolute path and exports it as bo
 | Variable                 | Description                       |
 | ------------------------ | --------------------------------- |
 | `TELEGRAM_BOT_TOKEN`     | Bot token from @BotFather         |
-| `TELEGRAM_ALLOWED_USERS` | Comma-separated Telegram user IDs |
+| `TELEGRAM_ALLOWED_USERS` | Comma-separated Telegram user IDs, or `.` to allow all users |
 
 ## Recommended
 

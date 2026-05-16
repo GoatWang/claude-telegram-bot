@@ -74,6 +74,8 @@ bun run start
 # 必填
 TELEGRAM_BOT_TOKEN=1234567890:ABC-DEF...
 TELEGRAM_ALLOWED_USERS=123456789
+# 或允許所有 Telegram 使用者：
+# TELEGRAM_ALLOWED_USERS=.
 
 # 可選的啟動選擇器
 CTB_ENV=/full/path/to/.env2                 # 或使用相對檔名，例如 .env2
@@ -117,7 +119,7 @@ ctb              # 工作目錄 = ~/my-project
 
 - **需要 @提及**：在群組中必須 `@bot_username` 提及機器人才會回應
 - **私聊不變**：私人訊息不需要提及
-- **授權控制**：只有 `TELEGRAM_ALLOWED_USERS` 中的用戶可以操作機器人
+- **授權控制**：只有 `TELEGRAM_ALLOWED_USERS` 中的用戶可以操作機器人；設為 `TELEGRAM_ALLOWED_USERS=.` 可允許所有 Telegram 使用者
 - **可見性**：授權用戶的對話所有群組成員都看得到
 - **隱私保護**：未授權用戶會收到私訊通知（群組中不顯示）
 

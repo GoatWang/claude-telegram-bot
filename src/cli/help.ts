@@ -37,7 +37,7 @@ OPTIONS:
   --help, -h       Show this help message
   --version, -v    Show version
   --token=TOKEN    Override TELEGRAM_BOT_TOKEN from the env file
-  --users=IDS      Override TELEGRAM_ALLOWED_USERS (comma-separated)
+  --users=IDS      Override TELEGRAM_ALLOWED_USERS (comma-separated, or . for all)
   --dir=PATH       Override working directory (default: current directory)
   --env=FILE       Load a different env file (default: .env)
   --chrome         Enable Chrome browser automation (requires Claude in Chrome extension)
@@ -49,7 +49,7 @@ ENVIRONMENT:
   The resolved absolute path is exported to CTB_ENV and CTB_ENV_FILE.
   Required variables from the selected env file:
     TELEGRAM_BOT_TOKEN      - Bot token from @BotFather
-    TELEGRAM_ALLOWED_USERS  - Comma-separated Telegram user IDs
+    TELEGRAM_ALLOWED_USERS  - Comma-separated Telegram user IDs, or . for all users
     CLAUDE_CODE_PATH        - Optional, defaults to ~/.local/bin/claude in ctb
     FIRST_PROMPT            - Optional, injected into the first request of each new session
 

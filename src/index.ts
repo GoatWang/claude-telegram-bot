@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { run } from "@grammyjs/runner";
 import { Bot, InlineKeyboard } from "grammy";
 import {
+	ALLOW_ALL_USERS,
 	ALLOWED_USERS,
 	RESTART_FILE,
 	TELEGRAM_POLLING_MAX_RETRY_MS,
@@ -148,7 +149,7 @@ console.log("=".repeat(50));
 console.log("Claude Telegram Bot - TypeScript Edition");
 console.log("=".repeat(50));
 console.log(`Working directory: ${WORKING_DIR}`);
-console.log(`Allowed users: ${ALLOWED_USERS.length}`);
+console.log(`Allowed users: ${ALLOW_ALL_USERS ? "all" : ALLOWED_USERS.length}`);
 console.log("Starting bot...");
 
 // Get bot info first

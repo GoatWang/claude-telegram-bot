@@ -366,6 +366,12 @@ describe("Authorization integration", () => {
 	test("empty allowed list rejects everyone", () => {
 		expect(isAuthorized(123456, [])).toBe(false);
 	});
+
+	test("wildcard allowed list accepts any defined user", () => {
+		expect(isAuthorized(123456, [], true)).toBe(true);
+		expect(isAuthorized(999999, [], true)).toBe(true);
+		expect(isAuthorized(undefined, [], true)).toBe(false);
+	});
 });
 
 describe("Shell command safety checks", () => {

@@ -38,13 +38,15 @@ process.env.PATH = pathParts.join(":");
 // ============== Core Configuration ==============
 
 export const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-export const ALLOWED_USERS: number[] = (
-	process.env.TELEGRAM_ALLOWED_USERS || ""
-)
-	.split(",")
-	.filter((x) => x.trim())
-	.map((x) => Number.parseInt(x.trim(), 10))
-	.filter((x) => !Number.isNaN(x));
+const allowedUsersRaw = process.env.TELEGRAM_ALLOWED_USERS || "";
+export const ALLOW_ALL_USERS = allowedUsersRaw.trim() === ".";
+export const ALLOWED_USERS: number[] = ALLOW_ALL_USERS
+	? []
+	: allowedUsersRaw
+			.split(",")
+			.filter((x) => x.trim())
+			.map((x) => Number.parseInt(x.trim(), 10))
+			.filter((x) => !Number.isNaN(x));
 
 export const WORKING_DIR = process.env.CLAUDE_WORKING_DIR || HOME;
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
@@ -415,7 +417,7 @@ if (!TELEGRAM_TOKEN) {
 	process.exit(1);
 }
 
-if (ALLOWED_USERS.length === 0) {
+if (!ALLOW_ALL_USERS && ALLOWED_USERS.length === 0) {
 	console.error(
 		"ERROR: TELEGRAM_ALLOWED_USERS environment variable is required",
 	);
@@ -423,5 +425,5 @@ if (ALLOWED_USERS.length === 0) {
 }
 
 console.log(
-	`Config loaded: ${ALLOWED_USERS.length} allowed users, working dir: ${WORKING_DIR}`,
+	`Config loaded: ${ALLOW_ALL_USERS ? "all" : ALLOWED_USERS.length} allowed users, working dir: ${WORKING_DIR}`,
 );

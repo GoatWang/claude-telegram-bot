@@ -36,7 +36,7 @@ allowDangerouslySkipPermissions: true
 
 ### Layer 1：使用者白名單
 
-只有 `TELEGRAM_ALLOWED_USERS` 內的 Telegram ID 才能使用。
+只有 `TELEGRAM_ALLOWED_USERS` 內的 Telegram ID 才能使用。只有在確定要允許所有 Telegram 使用者時，才設定 `TELEGRAM_ALLOWED_USERS=.`。
 
 ```
 使用者訊息 → 檢查 ID → 不在白名單則拒絕

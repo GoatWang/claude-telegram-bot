@@ -38,7 +38,7 @@ The bot implements multiple layers of security:
 
 ### Layer 1: User Allowlist
 
-Only Telegram users whose IDs are in `TELEGRAM_ALLOWED_USERS` can interact with the bot.
+Only Telegram users whose IDs are in `TELEGRAM_ALLOWED_USERS` can interact with the bot. Set `TELEGRAM_ALLOWED_USERS=.` only when you intentionally want to allow all Telegram users.
 
 ```
 User sends message → Check user ID in allowlist → Reject if not authorized

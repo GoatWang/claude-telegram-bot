@@ -8,6 +8,7 @@ import { realpathSync } from "node:fs";
 import { normalize, resolve } from "node:path";
 import { parse } from "shell-quote";
 import {
+	ALLOW_ALL_USERS,
 	ALLOWED_PATHS,
 	BLOCKED_PATTERNS,
 	RATE_LIMIT_ENABLED,
@@ -298,8 +299,10 @@ export function checkCommandSafety(
 export function isAuthorized(
 	userId: number | undefined,
 	allowedUsers: number[],
+	allowAllUsers = ALLOW_ALL_USERS,
 ): boolean {
 	if (!userId) return false;
+	if (allowAllUsers) return true;
 	if (allowedUsers.length === 0) return false;
 	return allowedUsers.includes(userId);
 }

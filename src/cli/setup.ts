@@ -43,7 +43,9 @@ export async function interactiveSetup(
 		console.log(
 			"\nEnter your Telegram user ID(s). Find yours by messaging @userinfobot",
 		);
-		users = await prompt("Enter TELEGRAM_ALLOWED_USERS (comma-separated): ");
+		users = await prompt(
+			"Enter TELEGRAM_ALLOWED_USERS (comma-separated, or . for all): ",
+		);
 		if (!users) {
 			console.error("At least one user ID is required");
 			process.exit(1);

@@ -196,4 +196,10 @@ describe("isAuthorized", () => {
 	test("returns false when allowed users list is empty", () => {
 		expect(isAuthorized(123, [])).toBe(false);
 	});
+
+	test("allows any defined user when wildcard is enabled", () => {
+		expect(isAuthorized(123, [], true)).toBe(true);
+		expect(isAuthorized(999, [], true)).toBe(true);
+		expect(isAuthorized(undefined, [], true)).toBe(false);
+	});
 });
